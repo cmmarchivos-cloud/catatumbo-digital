@@ -1,0 +1,4 @@
+catatumbo.db
+*.json
+__pycache__/
+*.pyc

@@ -1,0 +1,524 @@
+# Script de actualización de formularios - Archivo Municipal de Maracaibo
+import os
+
+os.makedirs('templates', exist_ok=True)
+
+SUBIR_HTML = """<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cargar Expediente - Archivo Municipal de Maracaibo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body class="bg-light d-flex flex-column vh-100">
+    <nav class="navbar navbar-dark navbar-expand-lg shadow-sm py-3" style="background-color: #0f172a !important;">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center fw-bold" href="/">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" id="navLogo" alt="Logo" style="height: 38px;" class="me-2 rounded p-1 bg-white">
+                Archivo Municipal de Maracaibo
+            </a>
+            <div class="navbar-nav ms-auto align-items-center">
+                <a class="nav-link px-3 fw-semibold" href="/"><i class="bi bi-house-door me-1"></i> Inicio</a>
+                {% if session.rol != 'gestor' %}
+                    <a class="nav-link px-3 fw-semibold" href="/buscar"><i class="bi bi-search me-1"></i> Buscar</a>
+                {% endif %}
+                <a class="nav-link px-3 active fw-semibold" href="/subir"><i class="bi bi-cloud-arrow-up me-1"></i> Cargar</a>
+                {% if session.rol == 'master' %}
+                    <a class="nav-link text-warning fw-bold px-3" href="/usuarios"><i class="bi bi-shield-lock me-1"></i> Usuarios</a>
+                {% endif %}
+                <span class="text-light ms-3 small bg-secondary px-3 py-1 rounded-pill"><i class="bi bi-person-badge me-1"></i> {{ session.nombre }}</span>
+                <a class="btn btn-outline-light btn-sm ms-3" href="/logout"><i class="bi bi-power"></i> Salir</a>
+            </div>
+        </div>
+    </nav>
+    <div class="container mt-4 mb-5 flex-grow-1">
+        <div class="bg-white p-5 rounded-4 shadow-sm border-top border-4 border-success">
+            <div class="d-flex align-items-center mb-4">
+                <div class="bg-success bg-opacity-10 p-3 rounded-3 text-success fs-3 me-3"><i class="bi bi-cloud-arrow-up-fill"></i></div>
+                <div>
+                    <h2 class="fw-bold text-dark mb-1">Cargar Nuevo Expediente</h2>
+                    <p class="text-muted small mb-0">Seleccione el tipo de documento para desplegar el formulario correspondiente.</p>
+                </div>
+            </div>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" enctype="multipart/form-data" id="formCarga" class="needs-validation" novalidate>
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-secondary">Tipo de Documento / Expediente <span class="text-danger">*</span></label>
+                    <select name="tipo_documento" id="tipo_documento" class="form-select form-select-lg shadow-sm" required onchange="actualizarFormulario()">
+                        <option value="" selected disabled>-- Seleccione el tipo de documento --</option>
+                        {% for t in tipos %}
+                        <option value="{{ t }}">{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div id="camposDinamicos">
+                    <!-- Se inyectarán dinámicamente los campos específicos -->
+                </div>
+
+                <div class="card bg-light border-0 p-4 rounded-3 mb-4 shadow-sm">
+                    <label class="form-label fw-bold text-dark mb-2"><i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i>Archivos PDF Adjuntos (Máximo 12 archivos)</label>
+                    <input type="file" name="pdfs" id="pdfs" class="form-control" accept=".pdf" multiple required>
+                    <div class="form-text text-muted mt-1 small">Puede seleccionar múltiples archivos PDF presionando la tecla Ctrl o Cmd. Límite estricto: 12 archivos por expediente.</div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="/" class="btn btn-light px-4 py-2 fw-semibold">Cancelar</a>
+                    <button type="submit" class="btn btn-success px-5 py-2 fw-bold shadow-sm"><i class="bi bi-check-circle-fill me-2"></i>Guardar Expediente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <footer class="text-center py-3 bg-white border-top text-muted small mt-auto">
+        <p class="mb-1 fw-semibold text-secondary" style="font-size: 0.8rem;">Creado Concejo Municipal Bolivariano de Maracaibo &copy; 2026 - Toda la Gloria es para Dios</p>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('navLogo').addEventListener('error', function() {
+            this.outerHTML = '<i class="bi bi-bank fs-4 text-warning me-2"></i>';
+        });
+
+        function actualizarFormulario() {
+            const tipo = document.getElementById('tipo_documento').value;
+            const contenedor = document.getElementById('camposDinamicos');
+            let html = '';
+
+            if (tipo === "Acta de nacimiento" || tipo === "Acta de matrimonio" || tipo === "Sentencia de divorcio") {
+                html = `
+                <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-journal-text me-2"></i>Datos de ${tipo}</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Nombre y Apellido del Contrayente Masculino / Titular</label>
+                            <input type="text" name="nombre_masculino" class="form-control" required placeholder="Ej. Juan Pérez">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Nombre y Apellido del Contrayente Femenino / Cónyuge</label>
+                            <input type="text" name="nombre_femenino" class="form-control" required placeholder="Ej. María Gómez">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Número de Acta</label>
+                            <input type="text" name="numero_acta" class="form-control" required placeholder="Ej. 452">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Año del Acta</label>
+                            <input type="number" name="anio_documento" class="form-control" required placeholder="Ej. 2024" min="1900" max="2100">
+                        </div>
+                    </div>
+                </div>`;
+            } else if (tipo === "Título de cementerio") {
+                html = `
+                <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-building me-2"></i>Datos de Título de Cementerio</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Tipo de Cementerio</label>
+                            <select name="sub_tipo_cementerio" class="form-select" required>
+                                <option value="" selected disabled>-- Seleccione Cementerio --</option>
+                                <option value="Cementerio San José">Cementerio San José</option>
+                                <option value="Cementerio Corazón de Jesús">Cementerio Corazón de Jesús</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Nombre y Apellido del Titular</label>
+                            <input type="text" name="nombre_titular" class="form-control" required placeholder="Ej. Carlos Silva">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Número de Acta</label>
+                            <input type="text" name="numero_acta" class="form-control" required placeholder="Ej. 889">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Año</label>
+                            <input type="number" name="anio_documento" class="form-control" required placeholder="Ej. 2023" min="1900" max="2100">
+                        </div>
+                    </div>
+                </div>`;
+            } else if (tipo === "Expediente de venta terrenos ejidos") {
+                html = `
+                <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-geo-alt me-2"></i>Datos de Terrenos Ejidos</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Nombre y Apellido del Titular</label>
+                            <input type="text" name="nombre_titular" class="form-control" required placeholder="Ej. Ana Rodríguez">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold small">Número de Acta</label>
+                            <input type="text" name="numero_acta" class="form-control" required placeholder="Ej. 102">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold small">Año</label>
+                            <input type="number" name="anio_documento" class="form-control" required placeholder="Ej. 2025" min="1900" max="2100">
+                        </div>
+                    </div>
+                </div>`;
+            } else if (tipo === "Actas de sesiones") {
+                html = `
+                <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-people me-2"></i>Datos de Actas de Sesiones</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Fecha del Acta</label>
+                            <input type="date" name="fecha_acta" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Número de Acta</label>
+                            <input type="text" name="numero_acta" class="form-control" required placeholder="Ej. 12">
+                        </div>
+                    </div>
+                </div>`;
+            } else if (tipo === "Gaceta oficial") {
+                html = `
+                <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-journal-bookmark me-2"></i>Datos de Gaceta Oficial</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Fecha de la Gaceta</label>
+                            <input type="date" name="fecha_gaceta" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Número de Gaceta Oficial</label>
+                            <input type="text" name="numero_gaceta" class="form-control" required placeholder="Ej. 4589-A">
+                        </div>
+                    </div>
+                </div>`;
+            } else if (tipo === "Expedientes de construcción de urbanismo de Maracaibo OMPU") {
+                html = `
+                <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-building-fill-gear me-2"></i>Datos OMPU (Urbanismo y Construcción)</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Nombre del Titular / Urbanizador</label>
+                            <input type="text" name="nombre_titular" class="form-control" required placeholder="Ej. Inversiones C.A.">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Fecha</label>
+                            <input type="date" name="fecha_documento" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Número de Registro</label>
+                            <input type="text" name="numero_registro" class="form-control" required placeholder="Ej. REG-998">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Número de Acta</label>
+                            <input type="text" name="numero_acta" class="form-control" required placeholder="Ej. 55">
+                        </div>
+                    </div>
+                </div>`;
+            } else if (tipo === "Expedientes laborales") {
+                html = `
+                <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-briefcase me-2"></i>Datos de Expediente Laboral</h5>
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold small">Nombre y Apellido del Titular</label>
+                            <input type="text" name="nombre_titular" class="form-control" required placeholder="Ej. Pedro Morales">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Fecha de Ingreso</label>
+                            <input type="date" name="fecha_ingreso_lab" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Fecha de Egreso</label>
+                            <input type="date" name="fecha_egreso_lab" class="form-control">
+                        </div>
+                    </div>
+                </div>`;
+            }
+            contenedor.innerHTML = html;
+        }
+
+        document.getElementById('formCarga').addEventListener('submit', function(e) {
+            const pdfInput = document.getElementById('pdfs');
+            if (pdfInput.files.length > 12) {
+                alert('Error: Puede adjuntar un máximo de 12 archivos PDF por expediente.');
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>
+"""
+
+EDITAR_HTML = """<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar Expediente - Archivo Municipal de Maracaibo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body class="bg-light d-flex flex-column vh-100">
+    <nav class="navbar navbar-dark navbar-expand-lg shadow-sm py-3" style="background-color: #0f172a !important;">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center fw-bold" href="/">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" id="navLogo" alt="Logo" style="height: 38px;" class="me-2 rounded p-1 bg-white">
+                Archivo Municipal de Maracaibo
+            </a>
+            <div class="navbar-nav ms-auto align-items-center">
+                <a class="nav-link px-3 fw-semibold" href="/"><i class="bi bi-house-door me-1"></i> Inicio</a>
+                <a class="nav-link px-3 active fw-semibold" href="/buscar"><i class="bi bi-search me-1"></i> Buscar</a>
+                <span class="text-light ms-3 small bg-secondary px-3 py-1 rounded-pill"><i class="bi bi-person-badge me-1"></i> {{ session.nombre }}</span>
+                <a class="btn btn-outline-light btn-sm ms-3" href="/logout"><i class="bi bi-power"></i> Salir</a>
+            </div>
+        </div>
+    </nav>
+    <div class="container mt-4 mb-5 flex-grow-1">
+        <div class="bg-white p-5 rounded-4 shadow-sm border-top border-4 border-warning">
+            <div class="d-flex align-items-center mb-4">
+                <div class="bg-warning bg-opacity-10 p-3 rounded-3 text-warning fs-3 me-3"><i class="bi bi-pencil-square"></i></div>
+                <div>
+                    <h2 class="fw-bold text-dark mb-1">Editar Expediente</h2>
+                    <p class="text-muted small mb-0">Modifique los datos o administre los archivos PDF adjuntos.</p>
+                </div>
+            </div>
+            
+            <form method="POST" enctype="multipart/form-data" id="formEdicion">
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-secondary">Tipo de Documento / Expediente <span class="text-danger">*</span></label>
+                    <select name="tipo_documento" id="tipo_documento" class="form-select form-select-lg shadow-sm" required onchange="actualizarFormulario()">
+                        {% for t in tipos %}
+                        <option value="{{ t }}" {% if doc.tipo_documento == t %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div id="camposDinamicos">
+                    <!-- Campos dinámicos -->
+                </div>
+
+                <div class="card bg-light border-0 p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-dark mb-3"><i class="bi bi-files text-danger me-2"></i>Archivos PDF Actuales</h5>
+                    {% if doc.archivos %}
+                        <div class="list-group mb-3">
+                            {% for arc in doc.archivos %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center bg-white border rounded mb-2 p-2">
+                                <span class="text-truncate small fw-medium" style="max-width: 70%;"><i class="bi bi-file-earmark-pdf text-danger me-2"></i>{{ arc }}</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <a href="/ver/{{ arc }}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i> Ver</a>
+                                    <div class="form-check form-switch ms-2">
+                                        <input class="form-check-input" type="checkbox" name="eliminar_archivos" value="{{ arc }}" id="del_{{ loop.index }}">
+                                        <label class="form-check-label text-danger small fw-semibold" for="del_{{ loop.index }}">Eliminar</label>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted small">No hay archivos PDF adjuntos actualmente.</p>
+                    {% endif %}
+
+                    <label class="form-label fw-bold text-dark mt-3 mb-2"><i class="bi bi-cloud-arrow-up text-success me-2"></i>Agregar Nuevos Archivos PDF (Máximo 12 en total)</label>
+                    <input type="file" name="pdfs" id="pdfs" class="form-control" accept=".pdf" multiple>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="/buscar" class="btn btn-light px-4 py-2 fw-semibold">Cancelar</a>
+                    <button type="submit" class="btn btn-warning px-5 py-2 fw-bold text-dark shadow-sm"><i class="bi bi-save-fill me-2"></i>Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <footer class="text-center py-3 bg-white border-top text-muted small mt-auto">
+        <p class="mb-1 fw-semibold text-secondary" style="font-size: 0.8rem;">Creado Concejo Municipal Bolivariano de Maracaibo &copy; 2026 - Toda la Gloria es para Dios</p>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('navLogo').addEventListener('error', function() {
+            this.outerHTML = '<i class="bi bi-bank fs-4 text-warning me-2"></i>';
+        });
+
+        const docData = {
+            tipo_documento: "{{ doc.tipo_documento }}",
+            nombre_masculino: "{{ doc.nombre_masculino }}",
+            nombre_femenino: "{{ doc.nombre_femenino }}",
+            nombre_titular: "{{ doc.nombre_titular }}",
+            numero_acta: "{{ doc.numero_acta }}",
+            anio_documento: "{{ doc.anio_documento }}",
+            sub_tipo_cementerio: "{{ doc.sub_tipo_cementerio }}",
+            fecha_acta: "{{ doc.fecha_acta }}",
+            fecha_gaceta: "{{ doc.fecha_gaceta }}",
+            numero_gaceta: "{{ doc.numero_gaceta }}",
+            fecha_documento: "{{ doc.fecha_documento }}",
+            numero_registro: "{{ doc.numero_registro }}",
+            fecha_ingreso_lab: "{{ doc.fecha_ingreso_lab }}",
+            fecha_egreso_lab: "{{ doc.fecha_egreso_lab }}"
+        };
+
+        function actualizarFormulario() {
+            const tipo = document.getElementById('tipo_documento').value;
+            const contenedor = document.getElementById('camposDinamicos');
+            let html = '';
+
+            if (tipo === "Acta de nacimiento" || tipo === "Acta de matrimonio" || tipo === "Sentencia de divorcio") {
+                html = `
+                <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-journal-text me-2"></i>Datos de ${tipo}</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Nombre y Apellido del Contrayente Masculino / Titular</label>
+                            <input type="text" name="nombre_masculino" class="form-control" required value="${docData.nombre_masculino}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Nombre y Apellido del Contrayente Femenino / Cónyuge</label>
+                            <input type="text" name="nombre_femenino" class="form-control" required value="${docData.nombre_femenino}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Número de Acta</label>
+                            <input type="text" name="numero_acta" class="form-control" required value="${docData.numero_acta}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Año del Acta</label>
+                            <input type="number" name="anio_documento" class="form-control" required value="${docData.anio_documento}">
+                        </div>
+                    </div>
+                </div>`;
+            } else if (tipo === "Título de cementerio") {
+                html = `
+                <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-building me-2"></i>Datos de Título de Cementerio</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Tipo de Cementerio</label>
+                            <select name="sub_tipo_cementerio" class="form-select" required>
+                                <option value="Cementerio San José" ${docData.sub_tipo_cementerio === 'Cementerio San José' ? 'selected' : ''}>Cementerio San José</option>
+                                <option value="Cementerio Corazón de Jesús" ${docData.sub_tipo_cementerio === 'Cementerio Corazón de Jesús' ? 'selected' : ''}>Cementerio Corazón de Jesús</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Nombre y Apellido del Titular</label>
+                            <input type="text" name="nombre_titular" class="form-control" required value="${docData.nombre_titular}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Número de Acta</label>
+                            <input type="text" name="numero_acta" class="form-control" required value="${docData.numero_acta}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Año</label>
+                            <input type="number" name="anio_documento" class="form-control" required value="${docData.anio_documento}">
+                        </div>
+                    </div>
+                </div>`;
+            } else if (tipo === "Expediente de venta terrenos ejidos") {
+                html = `
+                <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-geo-alt me-2"></i>Datos de Terrenos Ejidos</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Nombre y Apellido del Titular</label>
+                            <input type="text" name="nombre_titular" class="form-control" required value="${docData.nombre_titular}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold small">Número de Acta</label>
+                            <input type="text" name="numero_acta" class="form-control" required value="${docData.numero_acta}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold small">Año</label>
+                            <input type="number" name="anio_documento" class="form-control" required value="${docData.anio_documento}">
+                        </div>
+                    </div>
+                </div>`;
+            } else if (tipo === "Actas de sesiones") {
+                html = `
+                <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-people me-2"></i>Datos de Actas de Sesiones</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Fecha del Acta</label>
+                            <input type="date" name="fecha_acta" class="form-control" required value="${docData.fecha_acta}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Número de Acta</label>
+                            <input type="text" name="numero_acta" class="form-control" required value="${docData.numero_acta}">
+                        </div>
+                    </div>
+                </div>`;
+            } else if (tipo === "Gaceta oficial") {
+                html = `
+                <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-journal-bookmark me-2"></i>Datos de Gaceta Oficial</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Fecha de la Gaceta</label>
+                            <input type="date" name="fecha_gaceta" class="form-control" required value="${docData.fecha_gaceta}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Número de Gaceta Oficial</label>
+                            <input type="text" name="numero_gaceta" class="form-control" required value="${docData.numero_gaceta}">
+                        </div>
+                    </div>
+                </div>`;
+            } else if (tipo === "Expedientes de construcción de urbanismo de Maracaibo OMPU") {
+                html = `
+                <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-building-fill-gear me-2"></i>Datos OMPU (Urbanismo y Construcción)</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Nombre del Titular / Urbanizador</label>
+                            <input type="text" name="nombre_titular" class="form-control" required value="${docData.nombre_titular}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Fecha</label>
+                            <input type="date" name="fecha_documento" class="form-control" required value="${docData.fecha_documento}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Número de Registro</label>
+                            <input type="text" name="numero_registro" class="form-control" required value="${docData.numero_registro}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Número de Acta</label>
+                            <input type="text" name="numero_acta" class="form-control" required value="${docData.numero_acta}">
+                        </div>
+                    </div>
+                </div>`;
+            } else if (tipo === "Expedientes laborales") {
+                html = `
+                <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-briefcase me-2"></i>Datos de Expediente Laboral</h5>
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold small">Nombre y Apellido del Titular</label>
+                            <input type="text" name="nombre_titular" class="form-control" required value="${docData.nombre_titular}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Fecha de Ingreso</label>
+                            <input type="date" name="fecha_ingreso_lab" class="form-control" required value="${docData.fecha_ingreso_lab}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Fecha de Egreso</label>
+                            <input type="date" name="fecha_egreso_lab" class="form-control" value="${docData.fecha_egreso_lab}">
+                        </div>
+                    </div>
+                </div>`;
+            }
+            contenedor.innerHTML = html;
+        }
+
+        window.onload = function() {
+            actualizarFormulario();
+        };
+    </script>
+</body>
+</html>
+"""
+
+# Escritura automática de los archivos sin alterar el resto del sistema
+with open('templates/subir.html', 'w', encoding='utf-8') as f:
+    f.write(SUBIR_HTML)
+
+with open('templates/editar.html', 'w', encoding='utf-8') as f:
+    f.write(EDITAR_HTML)
+
+print("¡Formularios de subir.html y editar.html actualizados exitosamente en actualizar.py!")

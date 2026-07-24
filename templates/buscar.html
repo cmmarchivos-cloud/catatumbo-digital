@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Buscar Expedientes - Archivo Municipal de Maracaibo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body class="bg-light d-flex flex-column vh-100">
+    <nav class="navbar navbar-dark navbar-expand-lg shadow-sm py-3" style="background-color: #0f172a !important;">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center fw-bold" href="/">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" id="navLogo" alt="Logo" style="height: 38px;" class="me-2 bg-white rounded p-1">
+                Archivo Municipal de Maracaibo
+            </a>
+            <div class="navbar-nav ms-auto align-items-center">
+                <a class="nav-link px-3 fw-semibold" href="/"><i class="bi bi-house-door me-1"></i> Inicio</a>
+                <a class="nav-link px-3 active fw-semibold" href="/buscar"><i class="bi bi-search me-1"></i> Buscar</a>
+                {% if session.rol in ['master', 'gestor', 'supervisor'] %}
+                    <a class="nav-link px-3 fw-semibold" href="/subir"><i class="bi bi-cloud-arrow-up me-1"></i> Cargar</a>
+                {% endif %}
+                {% if session.rol == 'master' %}
+                    <a class="nav-link text-warning fw-bold px-3" href="/usuarios"><i class="bi bi-shield-lock me-1"></i> Usuarios</a>
+                {% endif %}
+                <span class="text-light ms-3 small bg-secondary px-3 py-1 rounded-pill">{{ session.nombre }}</span>
+                <a class="btn btn-outline-light btn-sm ms-3" href="/logout">Salir</a>
+            </div>
+        </div>
+    </nav>
+    <div class="container mt-4 mb-5 flex-grow-1">
+        <h2 class="mb-4 fw-bold"><i class="bi bi-search me-2 text-primary"></i>Buscar Expedientes</h2>
+        <form method="GET" action="/buscar" class="mb-4 bg-white p-4 rounded shadow-sm">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <input type="text" name="q" class="form-control" placeholder="Buscar por nombre, acta, gaceta..." value="{{ query }}">
+                </div>
+                <div class="col-md-4">
+                    <select name="tipo" class="form-select">
+                        <option value="">Todos los tipos...</option>
+                        {% for tipo in tipos %}
+                            <option value="{{ tipo }}" {% if tipo == tipo_filtro %}selected{% endif %}>{{ tipo }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-dark w-100 fw-bold" style="background-color: #0f172a;">Filtrar</button>
+                </div>
+            </div>
+        </form>
+        
+        <div class="bg-white p-4 rounded shadow-sm">
+            <table class="table table-hover align-middle">
+                <thead class="table-dark" style="background-color: #0f172a !important;">
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Nombres / Titular</th>
+                        <th>Detalles</th>
+                        <th>Archivos PDF</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in resultados %}
+                    <tr>
+                        <td class="fw-semibold">{{ doc.tipo_documento }}</td>
+                        <td>{{ doc.nombre_masculino }} {{ doc.nombre_femenino }} {{ doc.nombre_titular }}</td>
+                        <td>Acta: {{ doc.numero_acta }}</td>
+                        <td>
+                            {% if doc.archivos %}
+                                <button class="btn btn-sm btn-outline-secondary fw-semibold shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#collapseArchivos{{ doc.index_id }}" aria-expanded="false">
+                                    <i class="bi bi-file-earmark-pdf-fill text-danger me-1"></i> Ver Archivos ({{ doc.archivos|length }})
+                                </button>
+                                <div class="collapse mt-2" id="collapseArchivos{{ doc.index_id }}">
+                                    <div class="card card-body p-2 bg-light border shadow-sm" style="max-width: 280px;">
+                                        <div class="d-flex flex-column gap-1">
+                                            {% for archivo in doc.archivos %}
+                                                <div class="d-flex justify-content-between align-items-center bg-white p-1 px-2 rounded border small">
+                                                    <span class="text-truncate me-2 text-muted" style="max-width: 140px;" title="{{ archivo }}">{{ archivo }}</span>
+                                                    <div class="btn-group btn-group-sm" role="group">
+                                                        <a href="/ver/{{ archivo }}" target="_blank" class="btn btn-outline-dark btn-sm py-0 px-1" title="Ver / Imprimir">
+                                                            <i class="bi bi-printer"></i>
+                                                        </a>
+                                                        <a href="/descargar/{{ archivo }}" class="btn btn-outline-primary btn-sm py-0 px-1" title="Descargar">
+                                                            <i class="bi bi-download"></i>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <span class="text-muted small">Sin archivos</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if session.rol in ['master', 'supervisor'] %}
+                            <a href="/editar/{{ doc.index_id }}" class="btn btn-sm btn-outline-primary" title="Editar"><i class="bi bi-pencil"></i></a>
+                            {% endif %}
+                            {% if session.rol == 'master' %}
+                            <a href="/eliminar/{{ doc.index_id }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Seguro que desea eliminar este registro?');" title="Eliminar"><i class="bi bi-trash"></i></a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <footer class="text-center py-3 bg-white border-top text-muted small mt-auto">
+        <p class="mb-1 fw-semibold text-secondary" style="font-size: 0.8rem;">Creado Concejo Municipal Bolivariano de Maracaibo &copy; 2026 - Toda la Gloria es para Dios</p>
+        <p class="mb-0 fst-italic text-dark" style="font-size: 0.75rem;">"{{ versiculo_texto }}" — <strong>{{ versiculo_ref }}</strong></p>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('navLogo').addEventListener('error', function() {
+            this.outerHTML = '<i class="bi bi-bank fs-4 text-warning me-2"></i>';
+        });
+    </script>
+</body>
+</html>

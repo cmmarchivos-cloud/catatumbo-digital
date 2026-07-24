@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel Principal - Archivo Municipal de Maracaibo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body class="bg-light d-flex flex-column vh-100">
+    <nav class="navbar navbar-dark navbar-expand-lg shadow-sm py-3" style="background-color: #0f172a !important;">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center fw-bold" href="/">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" id="navLogo" alt="Logo" style="height: 38px;" class="me-2 bg-white rounded p-1">
+                Archivo Municipal de Maracaibo
+            </a>
+            <div class="navbar-nav ms-auto align-items-center">
+                <a class="nav-link px-3 active fw-semibold" href="/"><i class="bi bi-house-door me-1"></i> Inicio</a>
+                <a class="nav-link px-3 fw-semibold" href="/buscar"><i class="bi bi-search me-1"></i> Buscar</a>
+                {% if session.rol in ['master', 'gestor', 'supervisor'] %}
+                    <a class="nav-link px-3 fw-semibold" href="/subir"><i class="bi bi-cloud-arrow-up me-1"></i> Cargar</a>
+                {% endif %}
+                {% if session.rol == 'master' %}
+                    <a class="nav-link text-warning fw-bold px-3" href="/usuarios"><i class="bi bi-shield-lock me-1"></i> Usuarios</a>
+                {% endif %}
+                <span class="text-light ms-3 small bg-secondary px-3 py-1 rounded-pill"><i class="bi bi-person-badge me-1"></i> {{ session.nombre }} <span class="badge bg-dark text-warning ms-1">{{ session.rol|upper }}</span></span>
+                <a class="btn btn-outline-light btn-sm ms-3" href="/logout"><i class="bi bi-power"></i> Salir</a>
+            </div>
+        </div>
+    </nav>
+    <div class="container mt-5 mb-5 flex-grow-1">
+        <div class="row align-items-center mb-5 bg-white p-5 rounded-4 shadow-sm border-start border-4 border-primary" style="border-left-color: #0f172a !important;">
+            <div class="col-lg-8">
+                <div class="text-uppercase text-muted fw-bold small mb-1 tracking-wider">Concejo Municipal Bolivariano de Maracaibo</div>
+                <h1 class="display-6 fw-bold text-dark mb-2">Bienvenido, {{ session.nombre }}</h1>
+                <p class="text-muted lead fs-6 mb-0">Sistema Integral de Digitalización, Resguardo y Consulta Exclusiva de Expedientes Municipales.</p>
+            </div>
+            <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
+                <div class="p-3 bg-light rounded-3 d-inline-block border text-center px-4 shadow-sm">
+                    <span class="d-block text-muted small fw-bold">TOTAL EXPEDIENTES</span>
+                    <span class="display-5 fw-bold text-dark">{{ total_docs }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 h-100 p-4 bg-white">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="bg-dark bg-opacity-10 p-3 rounded-3 text-dark fs-3 me-3"><i class="bi bi-search"></i></div>
+                            <div>
+                                <h4 class="fw-bold text-dark mb-1">Módulo de Búsqueda</h4>
+                                <p class="text-muted small mb-0">Localice actas, gacetas y expedientes con filtros precisos.</p>
+                            </div>
+                        </div>
+                        <a href="/buscar" class="btn btn-dark w-100 fw-bold mt-2" style="background-color: #0f172a;"><i class="bi bi-arrow-right-circle me-1"></i> Ir al Buscador</a>
+                    </div>
+                </div>
+            </div>
+            {% if session.rol in ['master', 'gestor', 'supervisor'] %}
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 h-100 p-4 bg-white">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="bg-success bg-opacity-10 p-3 rounded-3 text-success fs-3 me-3"><i class="bi bi-cloud-arrow-up"></i></div>
+                            <div>
+                                <h4 class="fw-bold text-dark mb-1">Carga y Resguardo</h4>
+                                <p class="text-muted small mb-0">Incorpore nuevos registros documentales al sistema digital.</p>
+                            </div>
+                        </div>
+                        <a href="/subir" class="btn btn-outline-success w-100 fw-bold mt-2"><i class="bi bi-plus-circle me-1"></i> Nuevo Registro</a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <footer class="text-center py-3 bg-white border-top text-muted small mt-auto">
+        <p class="mb-1 fw-semibold text-secondary" style="font-size: 0.8rem;">Creado Concejo Municipal Bolivariano de Maracaibo &copy; 2026 - Toda la Gloria es para Dios</p>
+        <p class="mb-0 fst-italic text-dark" style="font-size: 0.75rem;">"{{ versiculo_texto }}" — <strong>{{ versiculo_ref }}</strong></p>
+    </footer>
+    <script>
+        document.getElementById('navLogo').addEventListener('error', function() {
+            this.outerHTML = '<i class="bi bi-bank fs-4 text-warning me-2"></i>';
+        });
+    </script>
+</body>
+</html>
