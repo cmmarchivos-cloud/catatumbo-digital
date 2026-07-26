@@ -1,0 +1,33 @@
+[
+    {
+        "tipo_documento": "Acta de nacimiento",
+        "fecha_ingreso": "2026-07-23 22:47:59",
+        "archivos": [
+            "20260723224759_4c5b7e29-b021-4fa4-85c5-dc82731d4d7c_certificado_1.pdf",
+            "20260723224759_6de7f9f9-afe4-48a3-b315-95ab278d004f_certificado.pdf",
+            "20260723224759_732d55f7-822f-40b8-944d-52b8cffa5db3_certificado_1_1.pdf",
+            "20260723224759_b3bbf1b5-70aa-4815-976d-0b0051717f05_certificado.pdf",
+            "20260723224759_certificado-251_1.pdf",
+            "20260723224759_certificado_altura_Rafael_Rincon.pdf",
+            "20260723224759_Certificado_de_Aprobacin_1_1.pdf",
+            "20260723224759_cf003bf5-8d84-42bf-9364-1a6608f2564a_certificado_1.pdf",
+            "20260723224759_d0609388-b805-479c-800d-967ef1f088a9_certificado.pdf",
+            "20260723224759_dfda70aa-13cb-470e-9e8c-9199bc19cfc0_certificado.pdf",
+            "20260723224759_Rafael_Ernesto_Rincon_Naranjo.pdf",
+            "20260723224759_RAFAEL_RINCON_-_ONLINE_SISTEMA_DE_PERMISOD_DE_TRABAJO_26-08-2025_1.pdf"
+        ],
+        "nombre_masculino": "rafael rincon",
+        "nombre_femenino": "maria landaeta",
+        "nombre_titular": "",
+        "numero_acta": "12355",
+        "anio_documento": "",
+        "sub_tipo_cementerio": "",
+        "fecha_acta": "",
+        "fecha_gaceta": "",
+        "numero_gaceta": "",
+        "fecha_documento": "0012-12-12",
+        "numero_registro": "",
+        "fecha_ingreso_lab": "",
+        "fecha_egreso_lab": ""
+    }
+]

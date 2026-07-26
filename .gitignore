@@ -1,4 +1,14 @@
-catatumbo.db
-*.json
+# Entorno virtual de Python
+venv/
 __pycache__/
 *.pyc
+
+# Base de datos local (¡Nunca debe subir a Git!)
+catatumbo.db
+
+# Carpeta de almacenamiento físico de PDFs locales (¡Privado en tu disco!)
+storage_pdf/
+
+# Archivos del sistema operativo
+.DS_Store
+*.swp

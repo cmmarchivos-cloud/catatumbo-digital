@@ -1,5 +1,6 @@
 import os
 import json
+import sqlite3
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_from_directory
 from werkzeug.utils import secure_filename
@@ -9,23 +10,68 @@ app.secret_key = 'catatumbo_digital_secure_secret_key'
 UPLOAD_FOLDER = 'storage_pdf'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-DATABASE_FILE = 'documentos.json'
-USERS_FILE = 'usuarios.json'
+DB_NAME = 'catatumbo.db'
 
-def init_users():
-    if not os.path.exists(USERS_FILE):
+def get_db_connection():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS usuarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            rol TEXT NOT NULL,
+            nombre TEXT NOT NULL
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS documentos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo_documento TEXT,
+            fecha_ingreso TEXT,
+            archivos TEXT,
+            nombre_masculino TEXT,
+            nombre_femenino TEXT,
+            nombre_titular TEXT,
+            numero_acta TEXT,
+            anio_documento TEXT,
+            sub_tipo_cementerio TEXT,
+            fecha_acta TEXT,
+            fecha_gaceta TEXT,
+            numero_gaceta TEXT,
+            fecha_documento TEXT,
+            numero_registro TEXT,
+            fecha_ingreso_lab TEXT,
+            fecha_egreso_lab TEXT
+        )
+    ''')
+    conn.commit()
+    
+    cursor.execute('SELECT COUNT(*) FROM usuarios')
+    if cursor.fetchone()[0] == 0:
         default_users = [
-            {"id": 1, "username": "master", "password": "123", "rol": "master", "nombre": "Administrador Master"},
-            {"id": 2, "username": "consultor", "password": "123", "rol": "consultor", "nombre": "Usuario Consultor"},
-            {"id": 3, "username": "gestor", "password": "123", "rol": "gestor", "nombre": "Gestor de Carga"},
-            {"id": 4, "username": "supervisor", "password": "123", "rol": "supervisor", "nombre": "Supervisor IT"}
+            ("master", "123", "master", "Administrador Master"),
+            ("consultor", "123", "consultor", "Usuario Consultor"),
+            ("gestor", "123", "gestor", "Gestor de Carga"),
+            ("supervisor", "123", "supervisor", "Supervisor IT")
         ]
-        with open(USERS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(default_users, f, ensure_ascii=False, indent=4)
+        cursor.executemany('''
+            INSERT INTO usuarios (username, password, rol, nombre)
+            VALUES (?, ?, ?, ?)
+        ''', default_users)
+        conn.commit()
+        
+    conn.close()
 
-init_users()
+init_db()
 
-# Versículo diario dinámico basado en el día del año
 @app.context_processor
 def inject_verse():
     versiculos = [
@@ -43,24 +89,6 @@ def inject_verse():
     ref, texto = versiculos[idx]
     return dict(versiculo_ref=ref, versiculo_texto=texto)
 
-def load_users():
-    with open(USERS_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-def save_users(users):
-    with open(USERS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(users, f, ensure_ascii=False, indent=4)
-
-def load_db():
-    if os.path.exists(DATABASE_FILE):
-        with open(DATABASE_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return []
-
-def save_db(data):
-    with open(DATABASE_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
-
 TIPOS_DOCUMENTO = [
     "Acta de nacimiento", "Acta de matrimonio", "Sentencia de divorcio",
     "Título de cementerio", "Expediente de venta terrenos ejidos",
@@ -68,6 +96,87 @@ TIPOS_DOCUMENTO = [
     "Expedientes de construcción de urbanismo de Maracaibo OMPU",
     "Expedientes laborales"
 ]
+
+def load_users():
+    conn = get_db_connection()
+    users = conn.execute('SELECT * FROM usuarios').fetchall()
+    conn.close()
+    return [dict(u) for u in users]
+
+def save_users(users):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM usuarios')
+    for u in users:
+        cursor.execute('''
+            INSERT INTO usuarios (id, username, password, rol, nombre)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (u.get('id'), u['username'], u['password'], u['rol'], u['nombre']))
+    conn.commit()
+    conn.close()
+
+def load_db():
+    conn = get_db_connection()
+    rows = conn.execute('SELECT * FROM documentos').fetchall()
+    conn.close()
+    docs = []
+    for r in rows:
+        d = dict(r)
+        d['index_id'] = d['id']
+        try:
+            d['archivos'] = json.loads(d['archivos']) if d['archivos'] else []
+        except:
+            d['archivos'] = []
+        docs.append(d)
+    return docs
+
+def save_db_doc(doc, doc_id=None):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    archivos_json = json.dumps(doc.get('archivos', []), ensure_ascii=False)
+    
+    if doc_id is not None:
+        cursor.execute('''
+            UPDATE documentos SET
+                tipo_documento = ?, fecha_ingreso = ?, archivos = ?,
+                nombre_masculino = ?, nombre_femenino = ?, nombre_titular = ?,
+                numero_acta = ?, anio_documento = ?, sub_tipo_cementerio = ?,
+                fecha_acta = ?, fecha_gaceta = ?, numero_gaceta = ?,
+                fecha_documento = ?, numero_registro = ?, fecha_ingreso_lab = ?,
+                fecha_egreso_lab = ?
+            WHERE id = ?
+        ''', (
+            doc.get('tipo_documento'), doc.get('fecha_ingreso'), archivos_json,
+            doc.get('nombre_masculino', ''), doc.get('nombre_femenino', ''), doc.get('nombre_titular', ''),
+            doc.get('numero_acta', ''), doc.get('anio_documento', ''), doc.get('sub_tipo_cementerio', ''),
+            doc.get('fecha_acta', ''), doc.get('fecha_gaceta', ''), doc.get('numero_gaceta', ''),
+            doc.get('fecha_documento', ''), doc.get('numero_registro', ''), doc.get('fecha_ingreso_lab', ''),
+            doc.get('fecha_egreso_lab', ''), doc_id
+        ))
+    else:
+        cursor.execute('''
+            INSERT INTO documentos (
+                tipo_documento, fecha_ingreso, archivos, nombre_masculino,
+                nombre_femenino, nombre_titular, numero_acta, anio_documento,
+                sub_tipo_cementerio, fecha_acta, fecha_gaceta, numero_gaceta,
+                fecha_documento, numero_registro, fecha_ingreso_lab, fecha_egreso_lab
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            doc.get('tipo_documento'), doc.get('fecha_ingreso'), archivos_json,
+            doc.get('nombre_masculino', ''), doc.get('nombre_femenino', ''), doc.get('nombre_titular', ''),
+            doc.get('numero_acta', ''), doc.get('anio_documento', ''), doc.get('sub_tipo_cementerio', ''),
+            doc.get('fecha_acta', ''), doc.get('fecha_gaceta', ''), doc.get('numero_gaceta', ''),
+            doc.get('fecha_documento', ''), doc.get('numero_registro', ''), doc.get('fecha_ingreso_lab', ''),
+            doc.get('fecha_egreso_lab', '')
+        ))
+    conn.commit()
+    conn.close()
+
+def delete_db_doc(doc_id):
+    conn = get_db_connection()
+    conn.execute('DELETE FROM documentos WHERE id = ?', (doc_id,))
+    conn.commit()
+    conn.close()
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -105,15 +214,14 @@ def buscar():
     docs = load_db()
     resultados = []
     
-    for idx, d in enumerate(docs):
-        d['index_id'] = idx
+    for d in docs:
         match_query = (
-            query in d.get('nombre_masculino', '').lower() or 
-            query in d.get('nombre_femenino', '').lower() or 
-            query in d.get('nombre_titular', '').lower() or 
-            query in d.get('numero_acta', '').lower() or
-            query in d.get('numero_gaceta', '').lower() or
-            query in d.get('numero_registro', '').lower()
+            query in str(d.get('nombre_masculino') or '').lower() or 
+            query in str(d.get('nombre_femenino') or '').lower() or 
+            query in str(d.get('nombre_titular') or '').lower() or 
+            query in str(d.get('numero_acta') or '').lower() or
+            query in str(d.get('numero_gaceta') or '').lower() or
+            query in str(d.get('numero_registro') or '').lower()
         )
         match_tipo = (tipo_filtro == '' or d.get('tipo_documento') == tipo_filtro)
         if (not query or match_query) and match_tipo:
@@ -164,9 +272,7 @@ def subir():
             'fecha_egreso_lab': request.form.get('fecha_egreso_lab', '')
         }
         
-        db = load_db()
-        db.append(nuevo_doc)
-        save_db(db)
+        save_db_doc(nuevo_doc)
         flash('Expediente cargado con éxito.', 'success')
         return redirect(url_for('buscar') if session['rol'] != 'gestor' else url_for('subir'))
         
@@ -179,9 +285,9 @@ def editar(idx):
         return redirect(url_for('index'))
     
     db = load_db()
-    if idx < 0 or idx >= len(db): return redirect(url_for('buscar'))
+    doc = next((d for d in db if d['id'] == idx), None)
+    if not doc: return redirect(url_for('buscar'))
         
-    doc = db[idx]
     if request.method == 'POST':
         doc['tipo_documento'] = request.form.get('tipo_documento')
         doc['nombre_masculino'] = request.form.get('nombre_masculino', '')
@@ -209,8 +315,7 @@ def editar(idx):
                 doc['archivos'].append(unique_filename)
                 total_actual += 1
 
-        db[idx] = doc
-        save_db(db)
+        save_db_doc(doc, doc_id=idx)
         flash('Registro actualizado correctamente.', 'success')
         return redirect(url_for('buscar'))
         
@@ -219,11 +324,8 @@ def editar(idx):
 @app.route('/eliminar/<int:idx>')
 def eliminar(idx):
     if 'user' not in session or session['rol'] != 'master': return redirect(url_for('index'))
-    db = load_db()
-    if 0 <= idx < len(db):
-        db.pop(idx)
-        save_db(db)
-        flash('Registro eliminado exitosamente.', 'success')
+    delete_db_doc(idx)
+    flash('Registro eliminado exitosamente.', 'success')
     return redirect(url_for('buscar'))
 
 @app.route('/usuarios', methods=['GET'])
@@ -273,7 +375,7 @@ def eliminar_usuario(username):
     flash('Usuario eliminado.', 'success')
     return redirect(url_for('gestionar_usuarios'))
 
-@app.route('/descargar/<filename>')
+@app.route('/descargar/<filename>', endpoint='descargar_archivo')
 def descargar(filename):
     if 'user' not in session or session['rol'] == 'gestor': return redirect(url_for('index'))
     return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
@@ -282,6 +384,27 @@ def descargar(filename):
 def ver_archivo(filename):
     if 'user' not in session or session['rol'] == 'gestor': return redirect(url_for('index'))
     return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=False)
+
+@app.route('/documento/<int:id>')
+def ver_detalle(id):
+    if 'user' not in session: return redirect(url_for('login'))
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM documentos WHERE id = ?', (id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if not row:
+        flash('El documento no fue encontrado.', 'danger')
+        return redirect(url_for('buscar'))
+        
+    documento = dict(row)
+    try:
+        documento['archivos'] = json.loads(documento['archivos']) if documento['archivos'] else []
+    except:
+        documento['archivos'] = []
+        
+    return render_template('detalle.html', documento=documento)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
