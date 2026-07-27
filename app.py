@@ -413,7 +413,7 @@ if __name__ == '__main__':
 # --- INICIO DE ENDPOINT DE SINCRONIZACION AUTOMATICA ---
 from flask import request, jsonify
 
-TOKEN_SECRETO = "TU_TOKEN_SECRETO_AQUI"
+TOKEN_SECRETO = "Archivoscmm"
 
 @app.route('/api/sincronizar', methods=['GET', 'POST'])
 def api_sincronizar():
