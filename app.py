@@ -408,3 +408,41 @@ def ver_detalle(id):
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
+
+# --- INICIO DE ENDPOINT DE SINCRONIZACION AUTOMATICA ---
+from flask import request, jsonify
+
+TOKEN_SECRETO = "TU_TOKEN_SECRETO_AQUI"
+
+@app.route('/api/sincronizar', methods=['GET', 'POST'])
+def api_sincronizar():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or auth_header != f"Bearer {TOKEN_SECRETO}":
+        return jsonify({"error": "No autorizado"}), 401
+        
+    conn = sqlite3.connect('catatumbo.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    if request.method == 'GET':
+        cursor.execute("SELECT * FROM expedientes WHERE sincronizado = 0")
+        registros = []
+        for row in cursor.fetchall():
+            reg = dict(row)
+            nombres_archivos = [a.strip() for a in (reg.get('archivos') or '').split(',') if a.strip()]
+            reg['lista_pdfs'] = [f"https://{request.host}/static/uploads/{nombre}" for nombre in nombres_archivos]
+            registros.append(reg)
+        conn.close()
+        return jsonify({"registros": registros}), 200
+        
+    elif request.method == 'POST':
+        data = request.json
+        ids = data.get("ids", [])
+        if ids:
+            placeholders = ','.join(['?'] * len(ids))
+            cursor.execute(f"UPDATE expedientes SET sincronizado = 1 WHERE id IN ({placeholders})", ids)
+            conn.commit()
+        conn.close()
+        return jsonify({"status": "ok"}), 200
+# --- FIN DE ENDPOINT DE SINCRONIZACION AUTOMATICA ---

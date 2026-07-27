@@ -1,196 +1,100 @@
 import os
+import sqlite3
 
-os.makedirs('templates', exist_ok=True)
+def actualizar_base_datos():
+    db_path = 'catatumbo.db'
+    print("[*] Verificando esquema de la base de datos...")
+    if os.path.exists(db_path):
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            # Verificar si la tabla documentos existe
+            cursor.execute("PRAGMA table_info(documentos);")
+            columnas = [col[1] for col in cursor.fetchall()]
+            
+            if columnas:
+                if 'sincronizado' not in columnas:
+                    cursor.execute("ALTER TABLE documentos ADD COLUMN sincronizado INTEGER DEFAULT 0;")
+                    conn.commit()
+                    print("[✓] Columna 'sincronizado' agregada exitosamente a la tabla 'documentos'.")
+                else:
+                    print("[✓] La tabla 'documentos' ya cuenta con la columna 'sincronizado'.")
+            else:
+                print("[!] Advertencia: La tabla 'documentos' no existe en la base de datos.")
+            conn.close()
+        except Exception as e:
+            print(f"[!] Error al actualizar la base de datos: {e}")
+    else:
+        print("[!] No se encontró el archivo 'catatumbo.db'.")
 
-usuarios_html_content = '''<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Gestión de Usuarios - Catatumbo Digital</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-</head>
-<body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('index') }}">Catatumbo Digital - CMM</a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="{{ url_for('index') }}">Inicio</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{{ url_for('buscar') }}">Buscar</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}">Cerrar Sesión</a></li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+def actualizar_app_py():
+    app_path = 'app.py'
+    print("[*] Verificando rutas en 'app.py'...")
+    
+    if not os.path.exists(app_path):
+        print("[!] Error: No se encontró el archivo 'app.py' en la raíz.")
+        return
 
-    <div class="container">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-              </div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
+    with open(app_path, 'r', encoding='utf-8') as f:
+        contenido = f.read()
 
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <h3>Gestión de Usuarios del Sistema</h3>
-                <button class="btn btn-success mt-2" data-bs-toggle="modal" data-bs-target="#modalCrearUsuario"><i class="fas fa-user-plus"></i> Nuevo Usuario</button>
-            </div>
-        </div>
+    # Verificar si el endpoint ya existe para evitar duplicarlo
+    if '/api/sincronizar' in contenido:
+        print("[✓] El endpoint de sincronización ya está integrado en 'app.py'.")
+        return
 
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>ID</th>
-                                <th>Usuario</th>
-                                <th>Nombre Completo</th>
-                                <th>Rol</th>
-                                <th class="text-center">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for u in usuarios %}
-                            <tr>
-                                <td>{{ u.id }}</td>
-                                <td>{{ u.username }}</td>
-                                <td>{{ u.nombre }}</td>
-                                <td><span class="badge bg-secondary">{{ u.rol }}</span></td>
-                                <td class="text-center">
-                                    <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#modalDetalleUsuario{{ u.id }}" title="Ver detalle"><i class="fas fa-eye"></i></button>
-                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditarUsuario{{ u.id }}" title="Editar"><i class="bi bi-pencil"></i></button>
-                                    {% if u.username != 'master' %}
-                                    <a href="{{ url_for('eliminar_usuario', username=u.username) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Está seguro de eliminar este usuario?');" title="Eliminar"><i class="bi bi-trash"></i></a>
-                                    {% endif %}
-                                </td>
-                            </tr>
+    # Bloque de código seguro adaptado estrictamente a la tabla 'documentos' y 'storage_pdf'
+    codigo_api = '''
 
-                            <!-- Modal Ver Detalle Usuario -->
-                            <div class="modal fade" id="modalDetalleUsuario{{ u.id }}" tabindex="-1">
-                              <div class="modal-dialog">
-                                <div class="modal-content">
-                                  <div class="modal-header bg-info text-white">
-                                    <h5 class="modal-title"><i class="fas fa-user"></i> Detalle del Usuario: {{ u.username }}</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                  </div>
-                                  <div class="modal-body">
-                                      <ul class="list-group list-group-flush">
-                                          <li class="list-group-item"><strong>ID de Usuario:</strong> {{ u.id }}</li>
-                                          <li class="list-group-item"><strong>Nombre de usuario:</strong> {{ u.username }}</li>
-                                          <li class="list-group-item"><strong>Nombre Completo:</strong> {{ u.nombre }}</li>
-                                          <li class="list-group-item"><strong>Rol en el Sistema:</strong> <span class="badge bg-secondary">{{ u.rol }}</span></li>
-                                      </ul>
-                                  </div>
-                                  <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
+# --- INICIO DE ENDPOINT DE SINCRONIZACION AUTOMATICA ---
+from flask import request, jsonify
 
-                            <!-- Modal Editar Usuario -->
-                            <div class="modal fade" id="modalEditarUsuario{{ u.id }}" tabindex="-1">
-                              <div class="modal-dialog">
-                                <div class="modal-content">
-                                  <form method="POST" action="{{ url_for('editar_usuario') }}">
-                                      <input type="hidden" name="user_id" value="{{ u.id }}">
-                                      <div class="modal-header">
-                                        <h5 class="modal-title">Editar Usuario: {{ u.username }}</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                      </div>
-                                      <div class="modal-body">
-                                          <div class="mb-3">
-                                              <label class="form-label">Nombre completo</label>
-                                              <input type="text" name="nombre" class="form-control" value="{{ u.nombre }}" required>
-                                          </div>
-                                          <div class="mb-3">
-                                              <label class="form-label">Nueva Contraseña (dejar en blanco para mantener la actual)</label>
-                                              <input type="password" name="password" class="form-control" placeholder="******">
-                                          </div>
-                                          <div class="mb-3">
-                                              <label class="form-label">Rol</label>
-                                              <select name="rol" class="form-select" {% if u.username == 'master' %}disabled{% endif %} required>
-                                                  <option value="consultor" {% if u.rol == 'consultor' %}selected{% endif %}>Consultor</option>
-                                                  <option value="gestor" {% if u.rol == 'gestor' %}selected{% endif %}>Gestor de Carga</option>
-                                                  <option value="supervisor" {% if u.rol == 'supervisor' %}selected{% endif %}>Supervisor IT</option>
-                                                  <option value="master" {% if u.rol == 'master' %}selected{% endif %}>Master</option>
-                                              </select>
-                                              {% if u.username == 'master' %}
-                                              <input type="hidden" name="rol" value="master">
-                                              {% endif %}
-                                          </div>
-                                      </div>
-                                      <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                        <button type="submit" class="btn btn-primary">Actualizar Usuario</button>
-                                      </div>
-                                  </form>
-                                </div>
-                              </div>
-                            </div>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
+TOKEN_SECRETO = "TU_TOKEN_SECRETO_AQUI"
 
-    <!-- Modal Crear Usuario -->
-    <div class="modal fade" id="modalCrearUsuario" tabindex="-1">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <form method="POST" action="{{ url_for('crear_usuario') }}">
-              <div class="modal-header">
-                <h5 class="modal-title">Crear Nuevo Usuario</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-              </div>
-              <div class="modal-body">
-                  <div class="mb-3">
-                      <label class="form-label">Nombre de usuario</label>
-                      <input type="text" name="username" class="form-control" required>
-                  </div>
-                  <div class="mb-3">
-                      <label class="form-label">Nombre completo</label>
-                      <input type="text" name="nombre" class="form-control" required>
-                  </div>
-                  <div class="mb-3">
-                      <label class="form-label">Contraseña</label>
-                      <input type="password" name="password" class="form-control" required>
-                  </div>
-                  <div class="mb-3">
-                      <label class="form-label">Rol</label>
-                      <select name="rol" class="form-select" required>
-                          <option value="consultor">Consultor</option>
-                          <option value="gestor">Gestor de Carga</option>
-                          <option value="supervisor">Supervisor IT</option>
-                          <option value="master">Master</option>
-                      </select>
-                  </div>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Guardar Usuario</button>
-              </div>
-          </form>
-        </div>
-      </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+@app.route('/api/sincronizar', methods=['GET', 'POST'])
+def api_sincronizar():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or auth_header != f"Bearer {TOKEN_SECRETO}":
+        return jsonify({"error": "No autorizado"}), 401
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    if request.method == 'GET':
+        cursor.execute("SELECT * FROM documentos WHERE sincronizado = 0")
+        registros = []
+        for row in cursor.fetchall():
+            reg = dict(row)
+            try:
+                archivos_lista = json.loads(reg.get('archivos') or '[]')
+            except:
+                archivos_lista = []
+            reg['lista_pdfs'] = [f"https://{request.host}/storage_pdf/{nombre}" for nombre in archivos_lista]
+            registros.append(reg)
+        conn.close()
+        return jsonify({"registros": registros}), 200
+        
+    elif request.method == 'POST':
+        data = request.json
+        ids = data.get("ids", [])
+        if ids:
+            placeholders = ','.join(['?'] * len(ids))
+            cursor.execute(f"UPDATE documentos SET sincronizado = 1 WHERE id IN ({placeholders})", ids)
+            conn.commit()
+        conn.close()
+        return jsonify({"status": "ok"}), 200
+# --- FIN DE ENDPOINT DE SINCRONIZACION AUTOMATICA ---
 '''
 
-with open('templates/usuarios.html', 'w', encoding='utf-8') as f:
-    f.write(usuarios_html_content)
+    try:
+        with open(app_path, 'a', encoding='utf-8') as f:
+            f.write(codigo_api)
+        print("[✓] Endpoint '/api/sincronizar' agregado correctamente a 'app.py'.")
+    except Exception as e:
+        print(f"[!] Error al modificar 'app.py': {e}")
 
-print("[OK] Plantilla usuarios.html actualizada con detalle, edición y creación de usuarios.")
+if __name__ == "__main__":
+    print("=== INICIANDO ACTUALIZACIÓN AUTOMATIZADA DE CATATUMBO DIGITAL ===")
+    actualizar_base_datos()
+    actualizar_app_py()
+    print("=== PROCESO DE ACTUALIZACIÓN FINALIZADO ===")
