@@ -2,138 +2,185 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Usuarios - Archivo Municipal de Maracaibo</title>
+    <title>Gestión de Usuarios - Catatumbo Digital</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 </head>
-<body class="bg-light d-flex flex-column vh-100">
-    <nav class="navbar navbar-dark navbar-expand-lg shadow-sm py-3" style="background-color: #0f172a !important;">
-        <div class="container">
-            <a class="navbar-brand fw-bold" href="/">Archivo Municipal de Maracaibo</a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link text-white" href="/">Volver al Inicio</a>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('index') }}">Catatumbo Digital - CMM</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('index') }}">Inicio</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('buscar') }}">Buscar</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}">Cerrar Sesión</a></li>
+                </ul>
             </div>
         </div>
     </nav>
-    <div class="container mt-4 mb-5 flex-grow-1">
-        <div class="bg-white p-4 rounded-4 shadow-sm mb-4 border-start border-4 border-warning">
-            <div class="d-flex justify-content-between align-items-center">
-                <h2 class="mb-0 text-dark fw-bold"><i class="bi bi-shield-lock me-2 text-warning"></i>Gestión de Usuarios y Accesos</h2>
-                <button class="btn btn-dark fw-bold shadow-sm" style="background-color: #0f172a;" data-bs-toggle="modal" data-bs-target="#modalCrear">
-                    <i class="bi bi-person-plus me-1"></i> Nuevo Usuario
-                </button>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <h3>Gestión de Usuarios del Sistema</h3>
+                <button class="btn btn-success mt-2" data-bs-toggle="modal" data-bs-target="#modalCrearUsuario"><i class="fas fa-user-plus"></i> Nuevo Usuario</button>
             </div>
         </div>
-        <div class="bg-white p-4 rounded-4 shadow-sm">
-            <table class="table table-hover align-middle">
-                <thead class="table-dark" style="background-color: #0f172a !important;">
-                    <tr>
-                        <th>ID</th>
-                        <th>Nombre</th>
-                        <th>Usuario</th>
-                        <th>Rol</th>
-                        <th class="text-end">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for u in usuarios %}
-                    <tr>
-                        <td><a href="{{ url_for(" class="btn btn-sm btn-outline-info" title="Ver detalle"><i class="fas fa-eye"></i></a> {{ u.id }}</td>
-                        <td class="fw-bold">{{ u.nombre }}</td>
-                        <td>{{ u.username }}</td>
-                        <td><span class="badge bg-secondary">{{ u.rol|upper }}</span></td>
-                        <td class="text-end">
-                            {% if u.username != 'master' %}
-                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditar{{ u.id }}" title="Editar"><i class="bi bi-pencil"></i></button>
-                                <a href="/usuarios/eliminar/{{ u.username }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Eliminar usuario?');" title="Eliminar"><i class="bi bi-trash"></i></a>
-                            {% else %}
-                                <span class="text-muted small">Protegido</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    <!-- Modal Editar -->
-                    <div class="modal fade" id="modalEditar{{ u.id }}" tabindex="-1">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <form method="POST" action="/usuarios/editar">
-                                    <div class="modal-header bg-dark text-white" style="background-color: #0f172a !important;">
-                                        <h5 class="modal-title">Editar Usuario</h5>
-                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <input type="hidden" name="user_id" value="{{ u.id }}">
-                                        <div class="mb-3">
-                                            <label class="form-label">Nombre Completo</label>
-                                            <input type="text" name="nombre" class="form-control" value="{{ u.nombre }}">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Nueva Contraseña (Opcional)</label>
-                                            <input type="password" name="password" class="form-control" placeholder="Dejar en blanco para no cambiar">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Rol del Sistema</label>
-                                            <select name="rol" class="form-select">
-                                                <option value="gestor" {% if u.rol == 'gestor' %}selected{% endif %}>Gestor (Carga)</option>
-                                                <option value="consultor" {% if u.rol == 'consultor' %}selected{% endif %}>Consultor (Solo Buscar)</option>
-                                                <option value="supervisor" {% if u.rol == 'supervisor' %}selected{% endif %}>Supervisor IT</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="submit" class="btn btn-dark w-100 fw-bold" style="background-color: #0f172a;">Actualizar Cambios</button>
-                                    </div>
-                                </form>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Usuario</th>
+                                <th>Nombre Completo</th>
+                                <th>Rol</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in usuarios %}
+                            <tr>
+                                <td>{{ u.id }}</td>
+                                <td>{{ u.username }}</td>
+                                <td>{{ u.nombre }}</td>
+                                <td><span class="badge bg-secondary">{{ u.rol }}</span></td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#modalDetalleUsuario{{ u.id }}" title="Ver detalle"><i class="fas fa-eye"></i></button>
+                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditarUsuario{{ u.id }}" title="Editar"><i class="bi bi-pencil"></i></button>
+                                    {% if u.username != 'master' %}
+                                    <a href="{{ url_for('eliminar_usuario', username=u.username) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Está seguro de eliminar este usuario?');" title="Eliminar"><i class="bi bi-trash"></i></a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+
+                            <!-- Modal Ver Detalle Usuario -->
+                            <div class="modal fade" id="modalDetalleUsuario{{ u.id }}" tabindex="-1">
+                              <div class="modal-dialog">
+                                <div class="modal-content">
+                                  <div class="modal-header bg-info text-white">
+                                    <h5 class="modal-title"><i class="fas fa-user"></i> Detalle del Usuario: {{ u.username }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                  </div>
+                                  <div class="modal-body">
+                                      <ul class="list-group list-group-flush">
+                                          <li class="list-group-item"><strong>ID de Usuario:</strong> {{ u.id }}</li>
+                                          <li class="list-group-item"><strong>Nombre de usuario:</strong> {{ u.username }}</li>
+                                          <li class="list-group-item"><strong>Nombre Completo:</strong> {{ u.nombre }}</li>
+                                          <li class="list-group-item"><strong>Rol en el Sistema:</strong> <span class="badge bg-secondary">{{ u.rol }}</span></li>
+                                      </ul>
+                                  </div>
+                                  <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </tbody>
-            </table>
+
+                            <!-- Modal Editar Usuario -->
+                            <div class="modal fade" id="modalEditarUsuario{{ u.id }}" tabindex="-1">
+                              <div class="modal-dialog">
+                                <div class="modal-content">
+                                  <form method="POST" action="{{ url_for('editar_usuario') }}">
+                                      <input type="hidden" name="user_id" value="{{ u.id }}">
+                                      <div class="modal-header">
+                                        <h5 class="modal-title">Editar Usuario: {{ u.username }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                      </div>
+                                      <div class="modal-body">
+                                          <div class="mb-3">
+                                              <label class="form-label">Nombre completo</label>
+                                              <input type="text" name="nombre" class="form-control" value="{{ u.nombre }}" required>
+                                          </div>
+                                          <div class="mb-3">
+                                              <label class="form-label">Nueva Contraseña (dejar en blanco para mantener la actual)</label>
+                                              <input type="password" name="password" class="form-control" placeholder="******">
+                                          </div>
+                                          <div class="mb-3">
+                                              <label class="form-label">Rol</label>
+                                              <select name="rol" class="form-select" {% if u.username == 'master' %}disabled{% endif %} required>
+                                                  <option value="consultor" {% if u.rol == 'consultor' %}selected{% endif %}>Consultor</option>
+                                                  <option value="gestor" {% if u.rol == 'gestor' %}selected{% endif %}>Gestor de Carga</option>
+                                                  <option value="supervisor" {% if u.rol == 'supervisor' %}selected{% endif %}>Supervisor IT</option>
+                                                  <option value="master" {% if u.rol == 'master' %}selected{% endif %}>Master</option>
+                                              </select>
+                                              {% if u.username == 'master' %}
+                                              <input type="hidden" name="rol" value="master">
+                                              {% endif %}
+                                          </div>
+                                      </div>
+                                      <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="submit" class="btn btn-primary">Actualizar Usuario</button>
+                                      </div>
+                                  </form>
+                                </div>
+                              </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Modal Crear -->
-    <div class="modal fade" id="modalCrear" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form method="POST" action="/usuarios/crear">
-                    <div class="modal-header bg-dark text-white" style="background-color: #0f172a !important;">
-                        <h5 class="modal-title">Crear Nuevo Usuario</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">Nombre y Apellido</label>
-                            <input type="text" name="nombre" class="form-control" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Usuario de Login</label>
-                            <input type="text" name="username" class="form-control" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Contraseña</label>
-                            <input type="password" name="password" class="form-control" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Rol del Sistema</label>
-                            <select name="rol" class="form-select" required>
-                                <option value="gestor">Gestor de Carga</option>
-                                <option value="consultor">Consultor (Solo Búsqueda)</option>
-                                <option value="supervisor">Supervisor IT</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="submit" class="btn btn-dark w-100 fw-bold" style="background-color: #0f172a;">Guardar Usuario</button>
-                    </div>
-                </form>
-            </div>
+    <!-- Modal Crear Usuario -->
+    <div class="modal fade" id="modalCrearUsuario" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form method="POST" action="{{ url_for('crear_usuario') }}">
+              <div class="modal-header">
+                <h5 class="modal-title">Crear Nuevo Usuario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                  <div class="mb-3">
+                      <label class="form-label">Nombre de usuario</label>
+                      <input type="text" name="username" class="form-control" required>
+                  </div>
+                  <div class="mb-3">
+                      <label class="form-label">Nombre completo</label>
+                      <input type="text" name="nombre" class="form-control" required>
+                  </div>
+                  <div class="mb-3">
+                      <label class="form-label">Contraseña</label>
+                      <input type="password" name="password" class="form-control" required>
+                  </div>
+                  <div class="mb-3">
+                      <label class="form-label">Rol</label>
+                      <select name="rol" class="form-select" required>
+                          <option value="consultor">Consultor</option>
+                          <option value="gestor">Gestor de Carga</option>
+                          <option value="supervisor">Supervisor IT</option>
+                          <option value="master">Master</option>
+                      </select>
+                  </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar Usuario</button>
+              </div>
+          </form>
         </div>
+      </div>
     </div>
-    <footer class="text-center py-3 bg-white border-top text-muted small mt-auto">
-        <p class="mb-1 fw-semibold text-secondary" style="font-size: 0.8rem;">Creado Concejo Municipal Bolivariano de Maracaibo &copy; 2026 - Toda la Gloria es para Dios</p>
-        <p class="mb-0 fst-italic text-dark" style="font-size: 0.75rem;">"{{ versiculo_texto }}" — <strong>{{ versiculo_ref }}</strong></p>
-    </footer>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
