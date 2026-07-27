@@ -8,12 +8,16 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.secret_key = 'catatumbo_digital_secure_secret_key'
 
-# Configuración de rutas basada en la ubicación absoluta para evitar errores en PythonAnywhere
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_FOLDER = os.path.join(BASE_DIR, 'storage_pdf')
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# Configuración inteligente de rutas compatible con PythonAnywhere y entorno local
+if os.path.exists('/home/cmmarchivos'):
+    DB_NAME = '/home/cmmarchivos/catatumbo.db'
+    UPLOAD_FOLDER = '/home/cmmarchivos/storage_pdf'
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    DB_NAME = os.path.join(BASE_DIR, 'catatumbo.db')
+    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'storage_pdf')
 
-DB_NAME = os.path.join(BASE_DIR, 'catatumbo.db')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def get_db_connection():
     conn = sqlite3.connect(DB_NAME)
@@ -56,6 +60,15 @@ def init_db():
             sincronizado INTEGER DEFAULT 0
         )
     ''')
+    
+    # Asegura que la columna sincronizado exista si la tabla ya fue creada previamente
+    try:
+        cursor.execute("ALTER TABLE documentos ADD COLUMN sincronizado INTEGER DEFAULT 0;")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass
+
+    cursor.execute("UPDATE documentos SET sincronizado = 0 WHERE sincronizado IS NULL;")
     conn.commit()
     
     cursor.execute('SELECT COUNT(*) FROM usuarios')
@@ -410,8 +423,7 @@ def ver_detalle(id):
         
     return render_template('detalle.html', documento=documento)
 
-
-# --- INICIO DE ENDPOINT DE SINCRONIZACION AUTOMATICA (CORREGIDO A 'documentos') ---
+# --- ENDPOINT DE SINCRONIZACION AUTOMATICA ---
 TOKEN_SECRETO = "Archivoscmm"
 
 @app.route('/api/sincronizar', methods=['GET', 'POST'])
@@ -420,8 +432,7 @@ def api_sincronizar():
     if not auth_header or auth_header != f"Bearer {TOKEN_SECRETO}":
         return jsonify({"error": "No autorizado"}), 401
         
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     if request.method == 'GET':
@@ -447,7 +458,6 @@ def api_sincronizar():
             conn.commit()
         conn.close()
         return jsonify({"status": "ok"}), 200
-# --- FIN DE ENDPOINT DE SINCRONIZACION AUTOMATICA ---
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
