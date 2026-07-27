@@ -2,15 +2,18 @@ import os
 import json
 import sqlite3
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, session, flash, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_from_directory, jsonify
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = 'catatumbo_digital_secure_secret_key'
-UPLOAD_FOLDER = 'storage_pdf'
+
+# Configuración de rutas basada en la ubicación absoluta para evitar errores en PythonAnywhere
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'storage_pdf')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-DB_NAME = 'catatumbo.db'
+DB_NAME = os.path.join(BASE_DIR, 'catatumbo.db')
 
 def get_db_connection():
     conn = sqlite3.connect(DB_NAME)
@@ -49,7 +52,8 @@ def init_db():
             fecha_documento TEXT,
             numero_registro TEXT,
             fecha_ingreso_lab TEXT,
-            fecha_egreso_lab TEXT
+            fecha_egreso_lab TEXT,
+            sincronizado INTEGER DEFAULT 0
         )
     ''')
     conn.commit()
@@ -159,8 +163,8 @@ def save_db_doc(doc, doc_id=None):
                 tipo_documento, fecha_ingreso, archivos, nombre_masculino,
                 nombre_femenino, nombre_titular, numero_acta, anio_documento,
                 sub_tipo_cementerio, fecha_acta, fecha_gaceta, numero_gaceta,
-                fecha_documento, numero_registro, fecha_ingreso_lab, fecha_egreso_lab
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                fecha_documento, numero_registro, fecha_ingreso_lab, fecha_egreso_lab, sincronizado
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
         ''', (
             doc.get('tipo_documento'), doc.get('fecha_ingreso'), archivos_json,
             doc.get('nombre_masculino', ''), doc.get('nombre_femenino', ''), doc.get('nombre_titular', ''),
@@ -406,13 +410,8 @@ def ver_detalle(id):
         
     return render_template('detalle.html', documento=documento)
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
 
-
-# --- INICIO DE ENDPOINT DE SINCRONIZACION AUTOMATICA ---
-from flask import request, jsonify
-
+# --- INICIO DE ENDPOINT DE SINCRONIZACION AUTOMATICA (CORREGIDO A 'documentos') ---
 TOKEN_SECRETO = "Archivoscmm"
 
 @app.route('/api/sincronizar', methods=['GET', 'POST'])
@@ -421,17 +420,20 @@ def api_sincronizar():
     if not auth_header or auth_header != f"Bearer {TOKEN_SECRETO}":
         return jsonify({"error": "No autorizado"}), 401
         
-    conn = sqlite3.connect('catatumbo.db')
+    conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
     if request.method == 'GET':
-        cursor.execute("SELECT * FROM expedientes WHERE sincronizado = 0")
+        cursor.execute("SELECT * FROM documentos WHERE sincronizado = 0")
         registros = []
         for row in cursor.fetchall():
             reg = dict(row)
-            nombres_archivos = [a.strip() for a in (reg.get('archivos') or '').split(',') if a.strip()]
-            reg['lista_pdfs'] = [f"https://{request.host}/static/uploads/{nombre}" for nombre in nombres_archivos]
+            try:
+                lista_archivos = json.loads(reg.get('archivos')) if reg.get('archivos') else []
+            except:
+                lista_archivos = []
+            reg['lista_pdfs'] = [f"https://{request.host}/descargar/{nombre}" for nombre in lista_archivos]
             registros.append(reg)
         conn.close()
         return jsonify({"registros": registros}), 200
@@ -441,8 +443,11 @@ def api_sincronizar():
         ids = data.get("ids", [])
         if ids:
             placeholders = ','.join(['?'] * len(ids))
-            cursor.execute(f"UPDATE expedientes SET sincronizado = 1 WHERE id IN ({placeholders})", ids)
+            cursor.execute(f"UPDATE documentos SET sincronizado = 1 WHERE id IN ({placeholders})", ids)
             conn.commit()
         conn.close()
         return jsonify({"status": "ok"}), 200
 # --- FIN DE ENDPOINT DE SINCRONIZACION AUTOMATICA ---
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
