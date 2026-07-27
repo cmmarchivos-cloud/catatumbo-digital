@@ -4,9 +4,47 @@ import sqlite3
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_from_directory, jsonify
 from werkzeug.utils import secure_filename
+import requests
 
 app = Flask(__name__)
 app.secret_key = 'catatumbo_digital_secure_secret_key'
+
+# --- CONFIGURACIÓN HÍBRIDA CON NGROK ---
+LOCAL_PC_TUNNEL = "https://unspoken-energy-stiffly.ngrok-free.dev"
+IS_PYTHONANYWHERE = 'PYTHONANYWHERE_SITE' in os.environ or os.path.exists('/home/cmmarchivos')
+
+if IS_PYTHONANYWHERE:
+    @app.before_request
+    def handle_pythonanywhere_proxy():
+        try:
+            headers = {key: value for (key, value) in request.headers if key.lower() != 'host'}
+            url = f"{LOCAL_PC_TUNNEL}{request.path}"
+            if request.query_string:
+                url += f"?{request.query_string.decode('utf-8')}"
+            
+            files = []
+            for key in request.files:
+                for storage in request.files.getlist(key):
+                    files.append((key, (storage.filename, storage.stream, storage.content_type)))
+            
+            resp = requests.request(
+                method=request.method,
+                url=url,
+                headers=headers,
+                data=request.form if request.method in ['POST', 'PUT', 'PATCH'] else None,
+                files=files if files else None,
+                params=request.args,
+                cookies=request.cookies,
+                allow_redirects=False,
+                timeout=30
+            )
+            
+            excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+            resp_headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
+            
+            return resp.content, resp.status_code, resp_headers
+        except Exception as e:
+            return f"<h3>Error de conexión con la PC local a través de Ngrok:</h3><p>{e}</p><p>Verifica que tu laptop tenga encendido el servidor Flask y el túnel de Ngrok.</p>", 502
 
 # Configuración inteligente de rutas compatible con PythonAnywhere y entorno local
 if os.path.exists('/home/cmmarchivos'):
@@ -61,7 +99,6 @@ def init_db():
         )
     ''')
     
-    # Asegura que la columna sincronizado exista si la tabla ya fue creada previamente
     try:
         cursor.execute("ALTER TABLE documentos ADD COLUMN sincronizado INTEGER DEFAULT 0;")
         conn.commit()
