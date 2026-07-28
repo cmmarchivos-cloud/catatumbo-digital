@@ -9,8 +9,8 @@ import requests
 app = Flask(__name__)
 app.secret_key = 'catatumbo_digital_secure_secret_key'
 
-# --- CONFIGURACIÓN HÍBRIDA CON NGROK ---
-LOCAL_PC_TUNNEL = "https://unspoken-energy-stiffly.ngrok-free.dev"
+# --- CONFIGURACIÓN HÍBRIDA CON SERVEO ---
+LOCAL_PC_TUNNEL = "https://catatumbodigital.serveousercontent.com"
 IS_PYTHONANYWHERE = 'PYTHONANYWHERE_SITE' in os.environ or os.path.exists('/home/cmmarchivos')
 
 if IS_PYTHONANYWHERE:
@@ -44,7 +44,7 @@ if IS_PYTHONANYWHERE:
             
             return resp.content, resp.status_code, resp_headers
         except Exception as e:
-            return f"<h3>Error de conexión con la PC local a través de Ngrok:</h3><p>{e}</p><p>Verifica que tu laptop tenga encendido el servidor Flask y el túnel de Ngrok.</p>", 502
+            return f"<h3>Error de conexión con la PC local a través de Serveo:</h3><p>{e}</p><p>Verifica que tu laptop tenga encendido el servidor Flask y el túnel de Serveo.</p>", 502
 
 # Configuración inteligente de rutas compatible con PythonAnywhere y entorno local
 if os.path.exists('/home/cmmarchivos'):
