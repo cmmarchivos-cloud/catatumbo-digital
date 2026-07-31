@@ -88,3 +88,9 @@ def buscar_registros(criterio):
 
 if __name__ == "__main__":
     inicializar_base_datos_local()
+
+def get_db():
+    import sqlite3
+    conn = sqlite3.connect('catatumbo.db')
+    conn.row_factory = sqlite3.Row
+    return conn

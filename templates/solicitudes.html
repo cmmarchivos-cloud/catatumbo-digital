@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión Integral de Solicitudes - Archivo Municipal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body class="bg-light d-flex flex-column vh-100">
+
+    <nav class="navbar navbar-dark navbar-expand-lg shadow-sm py-3" style="background-color: #0f172a !important;">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center fw-bold text-white" href="#">
+                🏛️ Concejo Municipal Bolivariano de Maracaibo
+            </a>
+            <div class="navbar-nav ms-auto align-items-center">
+                <a class="nav-link px-3 fw-semibold text-white" href="/"><i class="bi bi-house-door me-1"></i> Búsqueda</a>
+                <a class="nav-link px-3 active fw-semibold text-warning" href="/solicitudes"><i class="bi bi-inbox-fill me-1"></i> Solicitudes</a>
+                <a class="nav-link px-3 fw-semibold text-white" href="{{ url_for('solicitudes_bp.ver_papelera') }}"><i class="bi bi-trash-fill me-1"></i> Papelera</a>
+                <a class="nav-link px-3 fw-semibold text-info" href="{{ url_for('solicitudes_bp.estadisticas_trimestrales') }}"><i class="bi bi-bar-chart-fill me-1"></i> Estadísticas Trimestrales</a>
+                <a class="btn btn-outline-light btn-sm ms-3" href="/logout"><i class="bi bi-power"></i> Salir</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4 mb-5 flex-grow-1 px-4">
+        
+        <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded-3 shadow-sm border">
+            <div>
+                <h3 class="fw-bold text-dark mb-1"><i class="bi bi-envelope-paper text-primary me-2"></i>Control de Solicitudes y Trámites</h3>
+                <p class="text-muted small mb-0">Visualiza los datos de Google Forms, realiza la búsqueda física y procesa los envíos con QR.</p>
+            </div>
+            <div>
+                <a href="{{ url_for('solicitudes_bp.sincronizar_todas') }}" class="btn btn-primary fw-bold shadow-sm">
+                    <i class="bi bi-arrow-repeat me-1"></i> Sincronizar Google Sheets
+                </a>
+            </div>
+        </div>
+
+        {% if expediente_activo and (expediente_activo.anio or expediente_activo.tomo or expediente_activo.folio or expediente_activo.acta) %}
+        <div class="alert alert-warning alert-dismissible fade show shadow-sm mb-4 border-warning" role="alert">
+            <div class="d-flex align-items-center justify-content-between flex-wrap">
+                <div>
+                    <i class="bi bi-info-circle-fill text-warning me-2 fs-5"></i>
+                    <strong>Expediente Seleccionado del Archivo:</strong> 
+                    Año: <code>{{ expediente_activo.anio or 'N/D' }}</code> | 
+                    Tomo: <code>{{ expediente_activo.tomo or 'N/D' }}</code> | 
+                    Folio: <code>{{ expediente_activo.folio or 'N/D' }}</code> | 
+                    Acta: <code>{{ expediente_activo.acta or 'N/D' }}</code>
+                    <span class="d-block text-muted small mt-1">Estos datos se rellenarán automáticamente al abrir cualquier solicitud para agilizar el procesamiento.</span>
+                </div>
+                <a href="{{ url_for('solicitudes_bp.ver_solicitudes') }}" class="btn btn-sm btn-outline-dark fw-bold mt-2 mt-md-0">
+                    <i class="bi bi-x-circle me-1"></i> Limpiar Selección
+                </a>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endif %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-dark" style="background-color: #0f172a;">
+                            <tr>
+                                <th>OP</th>
+                                <th>Fecha Forms</th>
+                                <th>Ciudadano Solicitante</th>
+                                <th>Cédula</th>
+                                <th>Tipo de Documento</th>
+                                <th>Estatus</th>
+                                <th>Seguridad</th>
+                                <th class="text-center">Acciones y Detalle</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sol in solicitudes %}
+                            <tr>
+                                <td class="fw-bold">OP-{{ sol.id }}</td>
+                                <td><small class="text-muted">{{ sol.marca_temporal }}</small></td>
+                                <td class="fw-semibold">{{ sol.nombre_solicitante }} {{ sol.apellido_solicitante }}</td>
+                                <td>{{ sol.nacionalidad }}-{{ sol.cedula_solicitante }}</td>
+                                <td><span class="badge bg-secondary">{{ sol.tipo_documento }}</span></td>
+                                <td>
+                                    {% if sol.estado == 'PROCESADA' %}
+                                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i> Procesada</span>
+                                    {% elif sol.estado == 'PROCESANDO' %}
+                                        <span class="badge bg-info text-dark"><i class="bi bi-arrow-repeat me-1"></i> Procesando</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i> Pendiente</span>
+                                    {% endif %}
+                                </td>
+                                <td><code>{{ sol.codigo_seguridad or '---' }}</code></td>
+                                <td class="text-center">
+                                    <button class="btn btn-primary btn-sm fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalDetalle{{ sol.id }}">
+                                        <i class="bi bi-eye-fill me-1"></i> Revisar y Procesar
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-5">
+                                    <i class="bi bi-inbox display-4 d-block mb-2 text-secondary"></i>
+                                    No hay solicitudes cargadas.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% for sol in solicitudes %}
+    <div class="modal fade" id="modalDetalle{{ sol.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <form method="POST" action="{{ url_for('solicitudes_bp.procesar_y_guardar', id=sol.id) }}">
+                    <div class="modal-header bg-dark text-white">
+                        <h5 class="modal-title">
+                            <i class="bi bi-file-earmark-text me-2"></i>Expediente OP-{{ sol.id }} — Detalle del Trámite
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body bg-light p-4">
+                        
+                        <div class="card border-0 shadow-sm mb-4">
+                            <div class="card-header bg-primary text-white fw-semibold">
+                                <i class="bi bi-person-lines-fill me-2"></i>1. Datos Ingresados por el Ciudadano (Google Forms)
+                            </div>
+                            <div class="card-body bg-white">
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <label class="text-muted small">Correo Electrónico</label>
+                                        <p class="fw-bold mb-0 text-primary">{{ sol.correo_solicitante }}</p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="text-muted small">Nombre y Apellido</label>
+                                        <p class="fw-bold mb-0">{{ sol.nombre_solicitante }} {{ sol.apellido_solicitante }}</p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="text-muted small">Cédula de Identidad</label>
+                                        <p class="fw-bold mb-0">{{ sol.nacionalidad }}-{{ sol.cedula_solicitante }}</p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="text-muted small">Parentesco con el Titular</label>
+                                        <p class="fw-bold mb-0">{{ sol.parentesco or 'Titular / Directo' }}</p>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="text-muted small">Tipo de Documento Solicitado</label>
+                                        <p class="fw-bold mb-0 text-dark">{{ sol.tipo_documento }}</p>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="text-muted small">Número de Copias Solicitadas</label>
+                                        <p class="fw-bold mb-0 text-dark">{{ sol.numero_copias or '1' }}</p>
+                                    </div>
+                                    
+                                    {% if sol.nombre_titular %}
+                                    <div class="col-md-4">
+                                        <label class="text-muted small">Titular del Documento</label>
+                                        <p class="fw-bold mb-0 text-dark">{{ sol.nombre_titular }}</p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-success text-white fw-semibold">
+                                <i class="bi bi-search-heart me-2"></i>2. Verificación Física y Datos del Archivo Municipal (Funcionario)
+                            </div>
+                            <div class="card-body bg-white">
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-bold small">Año del Expediente / Acta</label>
+                                        <input type="text" class="form-control" name="anio_expediente_titulo" value="{{ sol.anio_expediente_titulo or expediente_activo.get('anio', '') }}" placeholder="Ej. 2018">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-bold small">Tomo</label>
+                                        <input type="text" class="form-control" name="tomo" value="{{ sol.tomo or expediente_activo.get('tomo', '') }}" placeholder="Ej. 01">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-bold small">Folio</label>
+                                        <input type="text" class="form-control" name="folio" value="{{ sol.folio or expediente_activo.get('folio', '') }}" placeholder="Ej. 125">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-bold small">Num. de Acta / Registro</label>
+                                        <input type="text" class="form-control" name="num_acta" value="{{ sol.num_acta or expediente_activo.get('acta', '') }}" placeholder="Ej. 45">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">Monto a Cancelar (Aranceles SEDEMAT)</label>
+                                        <input type="text" class="form-control" name="monto" value="{{ sol.monto or 'Por verificar en taquilla' }}" placeholder="Ej. 150 o Bs. 150">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">Estatus de la Solicitud</label>
+                                        <select name="estado" class="form-select fw-bold text-dark">
+                                            <option value="PENDIENTE" {% if sol.estado == 'PENDIENTE' %}selected{% endif %}>⏳ Pendiente</option>
+                                            <option value="PROCESANDO" {% if sol.estado == 'PROCESANDO' %}selected{% endif %}>🔄 Procesando (En búsqueda)</option>
+                                            <option value="PROCESADA" {% if sol.estado == 'PROCESADA' %}selected{% endif %}>✅ Procesada (Enviar Correo y QR)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="modal-footer bg-white d-flex justify-content-between">
+                        <div>
+                            <button type="submit" formaction="{{ url_for('solicitudes_bp.procesar_solicitud', num_op=sol.id) }}" formmethod="POST" class="btn btn-outline-secondary btn-sm fw-semibold" onclick="return confirm('¿Confirma que desea procesar y retirar este trámite de la bandeja activa? Quedará registrado en el historial de control.');">
+                                <i class="bi bi-check2-all me-1"></i> Procesar y Archivar OP
+                            </button>
+                            
+                            <a href="{{ url_for('solicitudes_bp.eliminar_solicitud', id=sol.id) }}" class="btn btn-outline-danger btn-sm fw-semibold ms-1" onclick="return confirm('¿Estás seguro de enviar este expediente a la papelera de reciclaje y bloquearlo?');">
+                                <i class="bi bi-trash-fill me-1"></i> Enviar a Papelera
+                            </a>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cerrar</button>
+                            <button type="submit" class="btn btn-success fw-bold px-4 shadow-sm">
+                                <i class="bi bi-send-check-fill me-1"></i> Guardar y Enviar Comprobante QR
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

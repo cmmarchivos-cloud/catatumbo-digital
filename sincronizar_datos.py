@@ -1,89 +1,156 @@
 import os
 import sqlite3
-import requests
-import json
+import csv
+import io
+import urllib.request
 
-# Configuración de rutas y credenciales corregida
-URL_SERVIDOR = "https://cmmarchivos.pythonanywhere.com/api/sincronizar"
-TOKEN_SECRETO = "Archivoscmm"
+# Configuración local de rutas y el ID único del documento de Google Sheets
 DB_PATH = "catatumbo.db"
-UPLOAD_FOLDER = "storage_pdf"
+SPREADSHEET_ID = "1cVtzyJ2Y7X9N1fZ9rGZgLxPazXjnuaGg7eIZFVwgX7k"
+
+# Enlaces directos configurados con sus respectivos gids para las 4 pestañas
+SHEET_CSV_URLS = [
+    (f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=1341303465", "Título de Cementerio"),
+    (f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=872085590", "Solicitud de OMPU"),
+    (f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=2014289934", "Actas de Matrimonio, Nacimiento y Divorcio"),
+    (f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=937866469", "Terrenos Ejidos")
+]
+
+def asegurar_estructura_bd(cursor):
+    """Asegura la estructura correcta de la tabla solicitudes_tramites en SQLite."""
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS solicitudes_tramites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            marca_temporal TEXT,
+            correo_google TEXT,
+            nombre_solicitante TEXT,
+            apellido_solicitante TEXT,
+            cedula_solicitante TEXT,
+            nacionalidad TEXT,
+            correo_solicitante TEXT,
+            parentesco TEXT,
+            tipo_documento TEXT,
+            numero_copias TEXT,
+            anio_expediente_titulo TEXT,
+            fecha_acta TEXT,
+            nombre_titular TEXT,
+            contrayente_masculino TEXT,
+            contrayente_femenino TEXT,
+            datos_expediente TEXT,
+            url_adjunto_copia TEXT,
+            estado TEXT DEFAULT 'PENDIENTE',
+            observaciones TEXT,
+            sincronizado INTEGER DEFAULT 0,
+            tomo TEXT,
+            folio TEXT,
+            num_acta TEXT,
+            monto TEXT,
+            codigo_seguridad TEXT
+        )
+    """)
 
 def ejecutar_sincronizacion():
-    headers = {"Authorization": f"Bearer {TOKEN_SECRETO}"}
+    print("[*] Sincronizando datos hacia la tabla 'solicitudes_tramites' (Modo Anti-Duplicados con Depuración)...")
     
-    print("[*] Conectando con el servidor en la nube para buscar registros pendientes...")
-    try:
-        response = requests.get(URL_SERVIDOR, headers=headers, timeout=15)
-        if response.status_code != 200:
-            print(f"[!] Error del servidor: {response.status_code} - {response.text}")
-            return
-        
-        data = response.json()
-        registros = data.get("registros", [])
-        
-        if not registros:
-            print("[✓] La base de datos local ya se encuentra actualizada. No hay registros pendientes.")
-            return
+    if not os.path.exists(DB_PATH):
+        print(f"[!] No se encontró la base de datos local en '{DB_PATH}'.")
+        return
 
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        ids_procesados = []
-        
-        for reg in registros:
-            # Inserción transaccional respetando la tabla real 'documentos' y sus campos
-            cursor.execute("""
-                INSERT OR IGNORE INTO documentos (
-                    id, tipo_documento, fecha_ingreso, archivos, nombre_masculino,
-                    nombre_femenino, nombre_titular, numero_acta, anio_documento,
-                    sub_tipo_cementerio, fecha_acta, fecha_gaceta, numero_gaceta,
-                    fecha_documento, numero_registro, fecha_ingreso_lab, fecha_egreso_lab
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                reg.get("id"),
-                reg.get("tipo_documento"),
-                reg.get("fecha_ingreso"),
-                reg.get("archivos"),
-                reg.get("nombre_masculino", ""),
-                reg.get("nombre_femenino", ""),
-                reg.get("nombre_titular", ""),
-                reg.get("numero_acta", ""),
-                reg.get("anio_documento", ""),
-                reg.get("sub_tipo_cementerio", ""),
-                reg.get("fecha_acta", ""),
-                reg.get("fecha_gaceta", ""),
-                reg.get("numero_gaceta", ""),
-                reg.get("fecha_documento", ""),
-                reg.get("numero_registro", ""),
-                reg.get("fecha_ingreso_lab", ""),
-                reg.get("fecha_egreso_lab", "")
-            ))
-            
-            # Descarga de archivos PDF asociados hacia storage_pdf
-            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-            for pdf_url in reg.get("lista_pdfs", []):
-                pdf_res = requests.get(pdf_url, headers=headers)
-                if pdf_res.status_code == 200:
-                    nombre_archivo = pdf_url.split("/")[-1]
-                    ruta_destino = os.path.join(UPLOAD_FOLDER, nombre_archivo)
-                    with open(ruta_destino, "wb") as f:
-                        f.write(pdf_res.content)
-            
-            ids_procesados.append(reg.get("id"))
-            
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    asegurar_estructura_bd(cursor)
+    conn.commit()
+
+    nuevos_registros = 0
+    duplicados_omitidos = 0
+
+    try:
+        for url, nombre_pestana in SHEET_CSV_URLS:
+            print(f"\n--- Procesando pestaña: {nombre_pestana} ---")
+            try:
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req) as response:
+                    csv_data = response.read().decode('utf-8')
+                
+                io_string = io.StringIO(csv_data)
+                reader = csv.reader(io_string)
+                
+                header = next(reader, None)
+                if not header:
+                    print(f"[!] La pestaña está vacía.")
+                    continue
+
+                filas_pestana = 0
+                for row in reader:
+                    if not row or len(row) < 5:
+                        continue
+                    
+                    total_cols = len(row)
+                    
+                    marca_temporal = row[0] if total_cols > 0 else ""
+                    correo_google = row[1] if total_cols > 1 else ""
+                    nombre_solicitante = row[2] if total_cols > 2 else ""
+                    apellido_solicitante = row[3] if total_cols > 3 else ""
+                    cedula_solicitante = row[4] if total_cols > 4 else ""
+                    nacionalidad = row[5] if total_cols > 5 else ""
+                    correo_solicitante = row[6] if total_cols > 6 else ""
+                    parentesco = row[7] if total_cols > 7 else ""
+                    tipo_documento = row[8] if total_cols > 8 else nombre_pestana
+                    numero_copias = row[9] if total_cols > 9 else ""
+                    anio_expediente = row[10] if total_cols > 10 else ""
+                    nombre_titular = row[11] if total_cols > 11 else ""
+                    
+                    contrayente_masculino = row[12] if total_cols > 12 else ""
+                    contrayente_femenino = row[13] if total_cols > 13 else ""
+
+                    # Línea de depuración para inspeccionar cada fila leída del CSV
+                    print(f"Leyendo fila -> Cédula: {cedula_solicitante} | Fecha: {marca_temporal}")
+
+                    # Validar si el registro ya existe usando Marca Temporal y Cédula como clave única
+                    if marca_temporal and cedula_solicitante:
+                        cursor.execute("""
+                            SELECT 1 FROM solicitudes_tramites 
+                            WHERE marca_temporal = ? AND cedula_solicitante = ?
+                        """, (marca_temporal, cedula_solicitante))
+                        
+                        if cursor.fetchone():
+                            duplicados_omitidos += 1
+                            continue
+
+                    # Insertar nuevo registro en la base de datos local
+                    cursor.execute("""
+                        INSERT INTO solicitudes_tramites (
+                            marca_temporal, correo_google, nombre_solicitante, apellido_solicitante,
+                            cedula_solicitante, nacionalidad, correo_solicitante, parentesco,
+                            tipo_documento, numero_copias, anio_expediente_titulo, nombre_titular,
+                            contrayente_masculino, contrayente_femenino, estado, sincronizado
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', 1)
+                    """, (
+                        marca_temporal, correo_google, nombre_solicitante, apellido_solicitante,
+                        cedula_solicitante, nacionalidad, correo_solicitante, parentesco,
+                        tipo_documento, numero_copias, anio_expediente, nombre_titular,
+                        contrayente_masculino, contrayente_femenino
+                    ))
+                    
+                    nuevos_registros += 1
+                    filas_pestana += 1
+
+                print(f"[✓] Nuevos importados desde '{nombre_pestana}': {filas_pestana}")
+
+            except Exception as sheet_err:
+                print(f"[!] Error leyendo la pestaña '{nombre_pestana}': {sheet_err}")
+
         conn.commit()
         conn.close()
         
-        # Notificar al servidor remoto para limpiar la cola temporal
-        confirm_res = requests.post(URL_SERVIDOR, json={"ids": ids_procesados}, headers=headers, timeout=10)
-        if confirm_res.status_code == 200:
-            print(f"[✓] Sincronización completada con éxito. Se procesaron {len(ids_procesados)} registros.")
-        else:
-            print("[!] Advertencia: Los registros se guardaron localmente, pero no se pudo confirmar la limpieza en la nube.")
+        print(f"\n[✓] Sincronización completada con éxito.")
+        print(f"    - Registros nuevos agregados: {nuevos_registros}")
+        print(f"    - Duplicados omitidos: {duplicados_omitidos}")
 
-    except requests.exceptions.RequestException as e:
-        print(f"[!] Error de conexión con el servidor: {e}")
     except Exception as e:
+        if 'conn' in locals() and conn:
+            conn.close()
         print(f"[!] Ocurrió un error inesperado: {e}")
 
 if __name__ == "__main__":

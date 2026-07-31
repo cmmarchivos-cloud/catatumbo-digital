@@ -1,100 +1,110 @@
-import os
 import sqlite3
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_NAME = os.path.join(BASE_DIR, 'catatumbo.db')
 
 def actualizar_base_datos():
-    db_path = 'catatumbo.db'
-    print("[*] Verificando esquema de la base de datos...")
-    if os.path.exists(db_path):
-        try:
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-            # Verificar si la tabla documentos existe
-            cursor.execute("PRAGMA table_info(documentos);")
-            columnas = [col[1] for col in cursor.fetchall()]
-            
-            if columnas:
-                if 'sincronizado' not in columnas:
-                    cursor.execute("ALTER TABLE documentos ADD COLUMN sincronizado INTEGER DEFAULT 0;")
-                    conn.commit()
-                    print("[✓] Columna 'sincronizado' agregada exitosamente a la tabla 'documentos'.")
-                else:
-                    print("[✓] La tabla 'documentos' ya cuenta con la columna 'sincronizado'.")
-            else:
-                print("[!] Advertencia: La tabla 'documentos' no existe en la base de datos.")
-            conn.close()
-        except Exception as e:
-            print(f"[!] Error al actualizar la base de datos: {e}")
-    else:
-        print("[!] No se encontró el archivo 'catatumbo.db'.")
-
-def actualizar_app_py():
-    app_path = 'app.py'
-    print("[*] Verificando rutas en 'app.py'...")
-    
-    if not os.path.exists(app_path):
-        print("[!] Error: No se encontró el archivo 'app.py' en la raíz.")
-        return
-
-    with open(app_path, 'r', encoding='utf-8') as f:
-        contenido = f.read()
-
-    # Verificar si el endpoint ya existe para evitar duplicarlo
-    if '/api/sincronizar' in contenido:
-        print("[✓] El endpoint de sincronización ya está integrado en 'app.py'.")
-        return
-
-    # Bloque de código seguro adaptado estrictamente a la tabla 'documentos' y 'storage_pdf'
-    codigo_api = '''
-
-# --- INICIO DE ENDPOINT DE SINCRONIZACION AUTOMATICA ---
-from flask import request, jsonify
-
-TOKEN_SECRETO = "TU_TOKEN_SECRETO_AQUI"
-
-@app.route('/api/sincronizar', methods=['GET', 'POST'])
-def api_sincronizar():
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or auth_header != f"Bearer {TOKEN_SECRETO}":
-        return jsonify({"error": "No autorizado"}), 401
-        
-    conn = get_db_connection()
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+
+    # 1. Asegurar la tabla de solicitudes y trámites de Google Forms
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS solicitudes_tramites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            marca_temporal TEXT,
+            correo_google TEXT,
+            nombre_solicitante TEXT,
+            apellido_solicitante TEXT,
+            cedula_solicitante TEXT,
+            nacionalidad TEXT,
+            correo_solicitante TEXT,
+            parentesco TEXT,
+            tipo_documento TEXT,
+            numero_copias TEXT,
+            anio_expediente_titulo TEXT,
+            tomo TEXT,
+            folio TEXT,
+            num_acta TEXT,
+            monto TEXT,
+            fecha_acta TEXT,
+            nombre_titular TEXT,
+            contrayente_masculino TEXT,
+            contrayente_femenino TEXT,
+            datos_expediente TEXT,
+            url_adjunto_copia TEXT,
+            estado TEXT DEFAULT 'PENDIENTE',
+            observaciones TEXT,
+            sincronizado INTEGER DEFAULT 0
+        )
+    ''')
+
+    # 2. Detectar la tabla principal de registros de documentos existente
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tablas = [row[0] for row in cursor.fetchall()]
     
-    if request.method == 'GET':
-        cursor.execute("SELECT * FROM documentos WHERE sincronizado = 0")
-        registros = []
-        for row in cursor.fetchall():
-            reg = dict(row)
-            try:
-                archivos_lista = json.loads(reg.get('archivos') or '[]')
-            except:
-                archivos_lista = []
-            reg['lista_pdfs'] = [f"https://{request.host}/storage_pdf/{nombre}" for nombre in archivos_lista]
-            registros.append(reg)
-        conn.close()
-        return jsonify({"registros": registros}), 200
-        
-    elif request.method == 'POST':
-        data = request.json
-        ids = data.get("ids", [])
-        if ids:
-            placeholders = ','.join(['?'] * len(ids))
-            cursor.execute(f"UPDATE documentos SET sincronizado = 1 WHERE id IN ({placeholders})", ids)
-            conn.commit()
-        conn.close()
-        return jsonify({"status": "ok"}), 200
-# --- FIN DE ENDPOINT DE SINCRONIZACION AUTOMATICA ---
-'''
+    tabla_principal = None
+    for t in ["registros_catatumbo", "registros", "documentos"]:
+        if t in tablas:
+            tabla_principal = t
+            break
+    
+    if not tabla_principal:
+        tabla_principal = "registros_catatumbo"
 
-    try:
-        with open(app_path, 'a', encoding='utf-8') as f:
-            f.write(codigo_api)
-        print("[✓] Endpoint '/api/sincronizar' agregado correctamente a 'app.py'.")
-    except Exception as e:
-        print(f"[!] Error al modificar 'app.py': {e}")
+    # Crear tabla principal si no existe
+    cursor.execute(f'''
+        CREATE TABLE IF NOT EXISTS {tabla_principal} (
+            index_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo_documento TEXT,
+            fecha_ingreso TEXT
+        )
+    ''')
 
-if __name__ == "__main__":
-    print("=== INICIANDO ACTUALIZACIÓN AUTOMATIZADA DE CATATUMBO DIGITAL ===")
+    # 3. Lista de columnas nuevas o requeridas que se añadirán de forma segura
+    columnas_nuevas = [
+        ("tomo", "TEXT"),
+        ("folio", "TEXT"),
+        ("anio_documento", "TEXT"),
+        ("numero_acta", "TEXT"),
+        ("numero_gaceta", "TEXT"),
+        ("numero_registro", "TEXT"),
+        ("nombre_titular", "TEXT"),
+        ("nombre_masculino", "TEXT"),
+        ("nombre_femenino", "TEXT"),
+        ("sub_tipo_cementerio", "TEXT"),
+        ("fecha_acta", "TEXT"),
+        ("fecha_gaceta", "TEXT"),
+        ("fecha_documento", "TEXT"),
+        ("fecha_ingreso_lab", "TEXT"),
+        ("fecha_egreso_lab", "TEXT"),
+        ("archivos", "TEXT")
+    ]
+
+    # Añadir columnas a la tabla principal si no existen (sin borrar datos previos)
+    for col_nombre, col_tipo in columnas_nuevas:
+        try:
+            cursor.execute(f"ALTER TABLE {tabla_principal} ADD COLUMN {col_nombre} {col_tipo};")
+            print(f"✅ Columna '{col_nombre}' agregada a '{tabla_principal}'.")
+        except sqlite3.OperationalError:
+            print(f"ℹ️ La columna '{col_nombre}' ya existe en '{tabla_principal}'.")
+
+    # Añadir campos también a solicitudes_tramites por seguridad
+    columnas_solicitudes = [
+        ("tomo", "TEXT"),
+        ("folio", "TEXT"),
+        ("num_acta", "TEXT"),
+        ("monto", "TEXT")
+    ]
+    for col_nombre, col_tipo in columnas_solicitudes:
+        try:
+            cursor.execute(f"ALTER TABLE solicitudes_tramites ADD COLUMN {col_nombre} {col_tipo};")
+        except sqlite3.OperationalError:
+            pass
+
+    conn.commit()
+    conn.close()
+    print("\n🚀 ¡Base de datos actualizada con éxito! Todos los campos nuevos están listos.")
+
+if __name__ == '__main__':
     actualizar_base_datos()
-    actualizar_app_py()
-    print("=== PROCESO DE ACTUALIZACIÓN FINALIZADO ===")

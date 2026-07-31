@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Sistema - Archivo Municipal de Maracaibo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; color: #333; display: flex; flex-direction: column; min-height: 100vh; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); }
+        .card-header { background-color: #0f172a; color: white; border-top-left-radius: 12px !important; border-top-right-radius: 12px !important; padding: 1.25rem 1.5rem; }
+    </style>
+</head>
+<body class="bg-light d-flex flex-column vh-100">
+    <nav class="navbar navbar-dark navbar-expand-lg shadow-sm py-3" style="background-color: #0f172a !important;">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center fw-bold" href="/">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" id="navLogo" alt="Logo" style="height: 38px;" class="me-2 bg-white rounded p-1">
+                Archivo Municipal de Maracaibo
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="navbar-nav ms-auto align-items-lg-center">
+                    <a class="nav-link px-3 fw-semibold" href="/"><i class="bi bi-house-door me-1"></i> Inicio</a>
+                    <a class="nav-link px-3 fw-semibold" href="/buscar"><i class="bi bi-search me-1"></i> Buscar</a>
+                    <a class="nav-link px-3 fw-bold text-warning" href="{{ url_for('solicitudes_bp.ver_solicitudes') }}"><i class="bi bi-inbox-fill me-1"></i> Solicitudes</a>
+                    {% if session.rol in ['master', 'gestor', 'supervisor'] %}
+                        <a class="nav-link px-3 fw-semibold" href="/subir"><i class="bi bi-cloud-arrow-up me-1"></i> Cargar</a>
+                    {% endif %}
+                    {% if session.rol == 'master' %}
+                        <a class="nav-link text-warning fw-bold px-3" href="/usuarios"><i class="bi bi-shield-lock me-1"></i> Usuarios</a>
+                        <a class="nav-link text-info fw-bold px-3 active" href="{{ url_for('panel_sistema') }}"><i class="fas fa-cogs me-1"></i> Sistema</a>
+                        <a class="nav-link text-warning fw-bold px-3" href="{{ url_for('base_datos_admin') }}"><i class="fas fa-database me-1"></i> Base de Datos</a>
+                    {% endif %}
+                    <span class="text-light ms-lg-3 my-2 my-lg-0 small bg-secondary px-3 py-1 rounded-pill"><i class="bi bi-person-badge me-1"></i> {{ session.nombre }} <span class="badge bg-dark text-warning ms-1">{{ session.rol|upper }}</span></span>
+                    <a class="btn btn-outline-light btn-sm ms-lg-3" href="/logout"><i class="bi bi-power"></i> Salir</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4 flex-grow-1">
+        <div class="row justify-content-center">
+            <div class="col-lg-12">
+                
+                <!-- Barra superior con Día y Fecha del Sistema -->
+                <div class="card text-white mb-4 shadow-sm" style="background-color: #0f172a;">
+                    <div class="card-body d-flex justify-content-between align-items-center flex-wrap py-3">
+                        <div>
+                            <h4 class="mb-0 fw-bold"><i class="fas fa-calendar-alt me-2 text-warning"></i> {{ info_tiempo.dia }}</h4>
+                            <p class="mb-0 text-white-50 small">{{ info_tiempo.fecha_completa }}</p>
+                        </div>
+                        <div class="mt-2 mt-md-0">
+                            <span class="badge bg-warning text-dark fw-bold px-3 py-2">
+                                <i class="fas fa-server me-1"></i> Servidor Activo
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="h3 fw-bold text-dark mb-0">
+                        <i class="fas fa-cogs text-primary me-2"></i> Panel de Administración del Sistema
+                    </h2>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm mb-4" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Sección de Respaldos y Base de Datos -->
+                <div class="row g-4 mb-4">
+                    
+                    <!-- Respaldo Local -->
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="mb-0 text-white"><i class="fas fa-database me-2"></i>Respaldo de Base de Datos</h5>
+                            </div>
+                            <div class="card-body d-flex flex-column justify-content-between p-4">
+                                <p class="text-muted">Crea una copia de seguridad segura de toda la base de datos y almacénala automáticamente en la carpeta dedicada <code>system_backups</code> del sistema.</p>
+                                <form action="{{ url_for('crear_respaldo_db') }}" method="POST">
+                                    <button type="submit" class="btn btn-dark w-100 py-2 fw-bold">
+                                        <i class="fas fa-save me-2"></i> Generar Respaldo Ahora
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Descarga Directa con Fecha de Operación -->
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="mb-0 text-white"><i class="fas fa-download me-2"></i>Descargar Base de Datos</h5>
+                            </div>
+                            <div class="card-body d-flex flex-column justify-content-between p-4">
+                                <p class="text-muted">Descarga instantáneamente la base de datos actual a tu equipo con la fecha y hora de la operación exacta en su nombre.</p>
+                                <a href="{{ url_for('descargar_db_actual') }}" class="btn btn-success w-100 py-2 fw-bold">
+                                    <i class="fas fa-file-download me-2"></i> Descargar Archivo .DB
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cargar / Restaurar Base de Datos -->
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0 text-white"><i class="fas fa-upload me-2"></i>Cargar / Restaurar Base de Datos</h5>
+                            </div>
+                            <div class="card-body p-4">
+                                <p class="text-muted">Sube un archivo de base de datos (<code>.db</code>) previamente respaldado para restaurar la información del sistema.</p>
+                                <form action="{{ url_for('restaurar_db') }}" method="POST" enctype="multipart/form-data">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Seleccionar archivo .db</label>
+                                        <input type="file" class="form-control" name="archivo_db" accept=".db" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Clave Master de Confirmación</label>
+                                        <input type="password" class="form-control" name="clave_master" placeholder="Ingrese su contraseña de administrador" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-danger w-100 py-2 fw-bold" onclick="return confirm('¿Estás seguro de sobrescribir la base de datos actual con este archivo?');">
+                                        <i class="fas fa-sync-alt me-2"></i> Cargar y Restaurar
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Tabla de Respaldos Almacenados -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0 text-white"><i class="fas fa-archive me-2"></i>Respaldos Almacenados en el Servidor</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Nombre del Archivo de Respaldo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if respaldos %}
+                                        {% for r in respaldos %}
+                                        <tr>
+                                            <td class="font-monospace text-secondary py-3">
+                                                <i class="fas fa-file-code text-success me-2"></i> {{ r }}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td class="text-center text-muted py-4">No hay respaldos generados todavía en la carpeta <code>system_backups</code>.</td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center py-3 bg-white border-top text-muted small mt-auto">
+        <p class="mb-1 fw-semibold text-secondary" style="font-size: 0.8rem;">Creado Concejo Municipal Bolivariano de Maracaibo &copy; 2026 - Toda la Gloria es para Dios</p>
+        <p class="mb-0 fst-italic text-dark" style="font-size: 0.75rem;">"{{ versiculo_texto }}" — <strong>{{ versiculo_ref }}</strong></p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('navLogo').addEventListener('error', function() {
+            this.outerHTML = '<i class="bi bi-bank fs-4 text-warning me-2"></i>';
+        });
+    </script>
+</body>
+</html>

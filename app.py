@@ -1,15 +1,49 @@
 import os
 import json
 import sqlite3
+import shutil
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_from_directory, jsonify
+from flask_mail import Mail
 from werkzeug.utils import secure_filename
 import requests
+
+# IMPORTANTE: Importamos el blueprint del módulo de solicitudes
+from solicitudes_bp import solicitudes_bp
 
 app = Flask(__name__)
 app.secret_key = 'catatumbo_digital_secure_secret_key'
 
-# --- CONFIGURACIÓN HÍBRIDA CON SERVEO ---
+# Inicialización de Flask-Mail
+mail = Mail(app)
+
+# Configuración del servidor de correo usando TLS (Puerto 587)
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USE_SSL'] = False
+app.config['MAIL_USERNAME'] = 'cmmarchivos@gmail.com'
+app.config['MAIL_PASSWORD'] = 'nzfadbseqdujxfqz'
+
+# URL oficial de Google Apps Script (Web App)
+GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz7BZ-fBE_F_TYKkyt_7bD4P_KtzZPCFAZQiHhh-R164xQkw779V91L79b1PMHO1H0tJA/exec"
+
+def enviar_correo_por_operacion(numero_operacion):
+    """Envía exclusivamente el número de Operación (op) a Google Apps Script para procesar el envío sin duplicar."""
+    payload = {
+        "op": str(numero_operacion)
+    }
+    try:
+        response = requests.post(GOOGLE_SCRIPT_URL, json=payload, timeout=20)
+        return response.json()
+    except Exception as e:
+        print(f"Error de conexión con Google Apps Script: {e}")
+        return {"status": "error", "message": str(e)}
+
+# IMPORTANTE: Registramos el blueprint para habilitar las rutas de solicitudes
+app.register_blueprint(solicitudes_bp)
+
+# --- CONFIGURACIÓN HÍBRIDA (Se omite automáticamente al estar en entorno local) ---
 LOCAL_PC_TUNNEL = "https://catatumbodigital.serveousercontent.com"
 IS_PYTHONANYWHERE = 'PYTHONANYWHERE_SITE' in os.environ or os.path.exists('/home/cmmarchivos')
 
@@ -44,23 +78,47 @@ if IS_PYTHONANYWHERE:
             
             return resp.content, resp.status_code, resp_headers
         except Exception as e:
-            return f"<h3>Error de conexión con la PC local a través de Serveo:</h3><p>{e}</p><p>Verifica que tu laptop tenga encendido el servidor Flask y el túnel de Serveo.</p>", 502
+            return f"<h3>Error de conexión con la PC local a través de Serveo:</h3><p>{e}</p>", 502
 
-# Configuración inteligente de rutas compatible con PythonAnywhere y entorno local
-if os.path.exists('/home/cmmarchivos'):
-    DB_NAME = '/home/cmmarchivos/catatumbo.db'
-    UPLOAD_FOLDER = '/home/cmmarchivos/storage_pdf'
-else:
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    DB_NAME = os.path.join(BASE_DIR, 'catatumbo.db')
-    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'storage_pdf')
+# Rutas de base de datos y almacenamiento local
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_NAME = os.path.join(BASE_DIR, 'catatumbo.db')
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'storage_pdf')
+
+# Carpeta separada para los respaldos del sistema
+BACKUP_FOLDER = os.path.join(BASE_DIR, 'system_backups')
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(BACKUP_FOLDER, exist_ok=True)
+
+# Función auxiliar para obtener la fecha y día actual en español
+def obtener_fecha_sistema():
+    dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+    meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+    ahora = datetime.now()
+    dia_semana = dias[ahora.weekday()]
+    mes = meses[ahora.month - 1]
+    return {
+        "dia": dia_semana,
+        "fecha_completa": f"{dia_semana}, {ahora.day} de {mes} de {ahora.year}",
+        "timestamp_archivo": ahora.strftime('%Y-%m-%d_%H-%M-%S')
+    }
 
 def get_db_connection():
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     return conn
+
+def verificar_clave_master(password_ingresada):
+    """Verifica si la clave ingresada coincide con la contraseña del usuario actual de la sesión."""
+    if 'user' not in session:
+        return False
+    conn = get_db_connection()
+    user = conn.execute('SELECT * FROM usuarios WHERE username = ?', (session['user'],)).fetchone()
+    conn.close()
+    if user and user['password'] == password_ingresada:
+        return True
+    return False
 
 def init_db():
     conn = get_db_connection()
@@ -77,6 +135,12 @@ def init_db():
     ''')
     
     cursor.execute('''
+        CREATE TABLE IF NOT EXISTS op_procesados (
+            op TEXT PRIMARY KEY
+        )
+    ''')
+    
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS documentos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tipo_documento TEXT,
@@ -87,6 +151,8 @@ def init_db():
             nombre_titular TEXT,
             numero_acta TEXT,
             anio_documento TEXT,
+            tomo TEXT,
+            folio TEXT,
             sub_tipo_cementerio TEXT,
             fecha_acta TEXT,
             fecha_gaceta TEXT,
@@ -99,11 +165,12 @@ def init_db():
         )
     ''')
     
-    try:
-        cursor.execute("ALTER TABLE documentos ADD COLUMN sincronizado INTEGER DEFAULT 0;")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass
+    for col, col_tipo in [("sincronizado", "INTEGER DEFAULT 0"), ("tomo", "TEXT"), ("folio", "TEXT")]:
+        try:
+            cursor.execute(f"ALTER TABLE documentos ADD COLUMN {col} {col_tipo};")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
 
     cursor.execute("UPDATE documentos SET sincronizado = 0 WHERE sincronizado IS NULL;")
     conn.commit()
@@ -131,13 +198,7 @@ def inject_verse():
     versiculos = [
         ("Proverbios 2:6", "Porque Jehová da la sabiduría, y de su boca viene el conocimiento y la inteligencia."),
         ("Colosenses 3:23", "Y todo lo que hagáis, hacedlo de corazón, como para el Señor y no para los hombres;"),
-        ("Salmos 90:17", "Sea la luz de Jehová nuestro Dios sobre nosotros, y la obra de nuestras manos confirma sobre nosotros."),
-        ("Romanos 11:36", "Porque de él, y por él, y para él, son todas las cosas. A él sea la gloria por los siglos. Amén."),
-        ("Salmos 37:5", "Encomienda a Jehová tu camino, y confía en él; y él hará."),
-        ("Proverbios 16:3", "Encomienda a Jehová tus obras, y tus pensamientos serán afirmados."),
-        ("Filipenses 4:13", "Todo lo puedo en Cristo que me fortalece."),
-        ("Salmos 119:105", "Lámpara es a mis pies tu palabra, y lumbrera a mi camino."),
-        ("Isaías 41:10", "No temas, porque yo estoy contigo; no desmayes, porque yo soy tu Dios que te fortalezco.")
+        ("Salmos 90:17", "Sea la luz de Jehová nuestro Dios sobre nosotros, y la obra de nuestras manos confirma sobre nosotros.")
     ]
     idx = datetime.now().toordinal() % len(versiculos)
     ref, texto = versiculos[idx]
@@ -194,7 +255,7 @@ def save_db_doc(doc, doc_id=None):
             UPDATE documentos SET
                 tipo_documento = ?, fecha_ingreso = ?, archivos = ?,
                 nombre_masculino = ?, nombre_femenino = ?, nombre_titular = ?,
-                numero_acta = ?, anio_documento = ?, sub_tipo_cementerio = ?,
+                numero_acta = ?, anio_documento = ?, tomo = ?, folio = ?, sub_tipo_cementerio = ?,
                 fecha_acta = ?, fecha_gaceta = ?, numero_gaceta = ?,
                 fecha_documento = ?, numero_registro = ?, fecha_ingreso_lab = ?,
                 fecha_egreso_lab = ?
@@ -202,7 +263,7 @@ def save_db_doc(doc, doc_id=None):
         ''', (
             doc.get('tipo_documento'), doc.get('fecha_ingreso'), archivos_json,
             doc.get('nombre_masculino', ''), doc.get('nombre_femenino', ''), doc.get('nombre_titular', ''),
-            doc.get('numero_acta', ''), doc.get('anio_documento', ''), doc.get('sub_tipo_cementerio', ''),
+            doc.get('numero_acta', ''), doc.get('anio_documento', ''), doc.get('tomo', ''), doc.get('folio', ''), doc.get('sub_tipo_cementerio', ''),
             doc.get('fecha_acta', ''), doc.get('fecha_gaceta', ''), doc.get('numero_gaceta', ''),
             doc.get('fecha_documento', ''), doc.get('numero_registro', ''), doc.get('fecha_ingreso_lab', ''),
             doc.get('fecha_egreso_lab', ''), doc_id
@@ -212,13 +273,13 @@ def save_db_doc(doc, doc_id=None):
             INSERT INTO documentos (
                 tipo_documento, fecha_ingreso, archivos, nombre_masculino,
                 nombre_femenino, nombre_titular, numero_acta, anio_documento,
-                sub_tipo_cementerio, fecha_acta, fecha_gaceta, numero_gaceta,
+                tomo, folio, sub_tipo_cementerio, fecha_acta, fecha_gaceta, numero_gaceta,
                 fecha_documento, numero_registro, fecha_ingreso_lab, fecha_egreso_lab, sincronizado
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
         ''', (
             doc.get('tipo_documento'), doc.get('fecha_ingreso'), archivos_json,
             doc.get('nombre_masculino', ''), doc.get('nombre_femenino', ''), doc.get('nombre_titular', ''),
-            doc.get('numero_acta', ''), doc.get('anio_documento', ''), doc.get('sub_tipo_cementerio', ''),
+            doc.get('numero_acta', ''), doc.get('anio_documento', ''), doc.get('tomo', ''), doc.get('folio', ''), doc.get('sub_tipo_cementerio', ''),
             doc.get('fecha_acta', ''), doc.get('fecha_gaceta', ''), doc.get('numero_gaceta', ''),
             doc.get('fecha_documento', ''), doc.get('numero_registro', ''), doc.get('fecha_ingreso_lab', ''),
             doc.get('fecha_egreso_lab', '')
@@ -275,7 +336,9 @@ def buscar():
             query in str(d.get('nombre_titular') or '').lower() or 
             query in str(d.get('numero_acta') or '').lower() or
             query in str(d.get('numero_gaceta') or '').lower() or
-            query in str(d.get('numero_registro') or '').lower()
+            query in str(d.get('numero_registro') or '').lower() or
+            query in str(d.get('tomo') or '').lower() or
+            query in str(d.get('folio') or '').lower()
         )
         match_tipo = (tipo_filtro == '' or d.get('tipo_documento') == tipo_filtro)
         if (not query or match_query) and match_tipo:
@@ -316,6 +379,8 @@ def subir():
             'nombre_titular': request.form.get('nombre_titular', ''),
             'numero_acta': request.form.get('numero_acta', ''),
             'anio_documento': request.form.get('anio_documento', ''),
+            'tomo': request.form.get('tomo', ''),
+            'folio': request.form.get('folio', ''),
             'sub_tipo_cementerio': request.form.get('sub_tipo_cementerio', ''),
             'fecha_acta': request.form.get('fecha_acta', ''),
             'fecha_gaceta': request.form.get('fecha_gaceta', ''),
@@ -349,6 +414,16 @@ def editar(idx):
         doc['nombre_titular'] = request.form.get('nombre_titular', '')
         doc['numero_acta'] = request.form.get('numero_acta', '')
         doc['anio_documento'] = request.form.get('anio_documento', '')
+        doc['tomo'] = request.form.get('tomo', '')
+        doc['folio'] = request.form.get('folio', '')
+        doc['sub_tipo_cementerio'] = request.form.get('sub_tipo_cementerio', '')
+        doc['fecha_acta'] = request.form.get('fecha_acta', '')
+        doc['fecha_gaceta'] = request.form.get('fecha_gaceta', '')
+        doc['numero_gaceta'] = request.form.get('numero_gaceta', '')
+        doc['fecha_documento'] = request.form.get('fecha_documento', '')
+        doc['numero_registro'] = request.form.get('numero_registro', '')
+        doc['fecha_ingreso_lab'] = request.form.get('fecha_ingreso_lab', '')
+        doc['fecha_egreso_lab'] = request.form.get('fecha_egreso_lab', '')
         
         archivos_a_eliminar = request.form.getlist('eliminar_archivos')
         for arc in archivos_a_eliminar:
@@ -375,9 +450,15 @@ def editar(idx):
         
     return render_template('editar.html', doc=doc, idx=idx, tipos=TIPOS_DOCUMENTO)
 
-@app.route('/eliminar/<int:idx>')
+@app.route('/eliminar/<int:idx>', methods=['POST'])
 def eliminar(idx):
     if 'user' not in session or session['rol'] != 'master': return redirect(url_for('index'))
+    
+    clave_ingresada = request.form.get('clave_master', '')
+    if not verificar_clave_master(clave_ingresada):
+        flash('Clave master incorrecta. No se pudo confirmar la operación de eliminación.', 'danger')
+        return redirect(url_for('ver_detalle', id=idx))
+        
     delete_db_doc(idx)
     flash('Registro eliminado exitosamente.', 'success')
     return redirect(url_for('buscar'))
@@ -422,12 +503,148 @@ def editar_usuario():
     flash('Usuario actualizado.', 'success')
     return redirect(url_for('gestionar_usuarios'))
 
-@app.route('/usuarios/eliminar/<username>')
+@app.route('/usuarios/eliminar/<username>', methods=['POST'])
 def eliminar_usuario(username):
-    if 'user' not in session or session['rol'] != 'master' or username == 'master': return redirect(url_for('gestionar_usuarios'))
+    if 'user' not in session or session['rol'] != 'master' or username == 'master': 
+        return redirect(url_for('gestionar_usuarios'))
+        
+    # Corrección para capturar tanto 'password' como 'clave_master' y evitar el error
+    clave_ingresada = request.form.get('password', '') or request.form.get('clave_master', '')
+    if not verificar_clave_master(clave_ingresada):
+        flash('Clave master incorrecta. No se pudo confirmar la eliminación del usuario.', 'danger')
+        return redirect(url_for('gestionar_usuarios'))
+        
     save_users([u for u in load_users() if u['username'] != username])
     flash('Usuario eliminado.', 'success')
     return redirect(url_for('gestionar_usuarios'))
+
+# --- MÓDULO DE GESTIÓN DEL SISTEMA ---
+@app.route('/sistema', methods=['GET'])
+def panel_sistema():
+    if 'user' not in session or session['rol'] != 'master':
+        flash('Acceso restringido al Panel de Sistema.', 'danger')
+        return redirect(url_for('index'))
+    
+    info_tiempo = obtener_fecha_sistema()
+    
+    respaldos = []
+    if os.path.exists(BACKUP_FOLDER):
+        respaldos = sorted(os.listdir(BACKUP_FOLDER), reverse=True)
+        
+    return render_template('sistema.html', info_tiempo=info_tiempo, respaldos=respaldos)
+
+@app.route('/sistema/respaldar', methods=['POST'])
+def crear_respaldo_db():
+    if 'user' not in session or session['rol'] != 'master':
+        return redirect(url_for('login'))
+    
+    try:
+        info_tiempo = obtener_fecha_sistema()
+        nombre_backup = f"catatumbo_respaldo_{info_tiempo['timestamp_archivo']}.db"
+        ruta_destino = os.path.join(BACKUP_FOLDER, nombre_backup)
+        
+        shutil.copyfile(DB_NAME, ruta_destino)
+        flash(f'Respaldo creado exitosamente con el nombre: {nombre_backup}', 'success')
+    except Exception as e:
+        flash(f'Error al crear el respaldo: {e}', 'danger')
+        
+    return redirect(url_for('panel_sistema'))
+
+@app.route('/sistema/descargar_actual', methods=['GET'])
+def descargar_db_actual():
+    if 'user' not in session or session['rol'] != 'master':
+        return redirect(url_for('login'))
+    
+    info_tiempo = obtener_fecha_sistema()
+    nombre_descarga = f"catatumbo_db_{info_tiempo['timestamp_archivo']}.db"
+    return send_from_directory(BASE_DIR, 'catatumbo.db', as_attachment=True, download_name=nombre_descarga)
+
+@app.route('/sistema/restaurar', methods=['POST'])
+def restaurar_db():
+    if 'user' not in session or session['rol'] != 'master':
+        return redirect(url_for('login'))
+    
+    clave_ingresada = request.form.get('clave_master', '')
+    if not verificar_clave_master(clave_ingresada):
+        flash('Clave master incorrecta. Operación de restauración cancelada.', 'danger')
+        return redirect(url_for('panel_sistema'))
+    
+    archivo_db = request.files.get('archivo_db')
+    if archivo_db and archivo_db.filename.endswith('.db'):
+        temp_path = os.path.join(BASE_DIR, 'temp_restore.db')
+        try:
+            archivo_db.save(temp_path)
+            
+            conn_test = sqlite3.connect(temp_path)
+            conn_test.execute('SELECT COUNT(*) FROM documentos')
+            conn_test.close()
+            
+            os.replace(temp_path, DB_NAME)
+            flash('Base de datos restaurada y actualizada correctamente.', 'success')
+        except Exception as e:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            flash(f'Error: El archivo seleccionado no es una base de datos SQLite válida o está corrupto. Detalles: {e}', 'danger')
+    else:
+        flash('Debe seleccionar un archivo con extensión .db válido.', 'danger')
+        
+    return redirect(url_for('panel_sistema'))
+
+# --- MÓDULO DE MANTENIMIENTO DE BASE DE DATOS ---
+@app.route('/base_datos', methods=['GET'])
+def base_datos_admin():
+    if 'user' not in session or session['rol'] != 'master':
+        flash('Acceso restringido al Mantenimiento de Base de Datos.', 'danger')
+        return redirect(url_for('index'))
+    return render_template('base_datos.html')
+
+@app.route('/base_datos/editar', methods=['POST'])
+def editar_contenido_db():
+    if 'user' not in session or session['rol'] != 'master':
+        return redirect(url_for('login'))
+    
+    registro_id = request.form.get('registro_id')
+    if registro_id:
+        return redirect(url_for('editar', idx=int(registro_id)))
+    
+    flash('Debe proporcionar un ID de registro válido.', 'warning')
+    return redirect(url_for('base_datos_admin'))
+
+@app.route('/base_datos/borrar', methods=['POST'])
+def borrar_contenido_db():
+    if 'user' not in session or session['rol'] != 'master':
+        return redirect(url_for('login'))
+    
+    clave_ingresada = request.form.get('clave_master', '')
+    if not verificar_clave_master(clave_ingresada):
+        flash('Clave master incorrecta. Operación de borrado masivo cancelada.', 'danger')
+        return redirect(url_for('base_datos_admin'))
+    
+    tabla_objetivo = request.form.get('tabla_objetivo')
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        if tabla_objetivo == 'solicitudes':
+            cursor.execute("DELETE FROM solicitudes_tramites")
+            conn.commit()
+            flash('La tabla de solicitudes ha sido vaciada exitosamente.', 'success')
+        elif tabla_objetivo == 'documentos':
+            cursor.execute("DELETE FROM documentos")
+            conn.commit()
+            flash('Se han purgado todos los documentos y expedientes de la base de datos.', 'success')
+        elif tabla_objetivo == 'papelera':
+            cursor.execute("DELETE FROM papelera_solicitudes")
+            conn.commit()
+            flash('La papelera del sistema ha sido limpiada.', 'success')
+        else:
+            flash('Seleccione una opción de borrado válida.', 'warning')
+    except Exception as e:
+        flash(f'Error crítico al ejecutar la operación en la base de datos: {e}', 'danger')
+    finally:
+        conn.close()
+        
+    return redirect(url_for('base_datos_admin'))
 
 @app.route('/descargar/<filename>', endpoint='descargar_archivo')
 def descargar(filename):
@@ -460,7 +677,21 @@ def ver_detalle(id):
         
     return render_template('detalle.html', documento=documento)
 
-# --- ENDPOINT DE SINCRONIZACION AUTOMATICA ---
+@app.route('/enviar_comprobante/<int:id_operacion>', methods=['POST'])
+def enviar_comprobante(id_operacion):
+    if 'user' not in session: return redirect(url_for('login'))
+    
+    resultado = enviar_correo_por_operacion(id_operacion)
+    
+    if resultado.get("status") == "success":
+        codigo = resultado.get("seguridad")
+        flash(f"¡Comprobante enviado con éxito! Código de seguridad generado: {codigo}", "success")
+    else:
+        flash(resultado.get("message", "Hubo un error al procesar el envío."), "danger")
+        
+    return redirect(url_for('ver_detalle', id=id_operacion))
+
+# --- ENDPOINT DE SINCRONIZACION AUTOMATICA CON FILTRO DE EXCLUSIÓN ---
 TOKEN_SECRETO = "Archivoscmm"
 
 @app.route('/api/sincronizar', methods=['GET', 'POST'])
@@ -472,16 +703,29 @@ def api_sincronizar():
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS op_procesados (
+            op TEXT PRIMARY KEY
+        )
+    ''')
+    conn.commit()
+    
     if request.method == 'GET':
         cursor.execute("SELECT * FROM documentos WHERE sincronizado = 0")
         registros = []
         for row in cursor.fetchall():
             reg = dict(row)
+            
+            num_op_val = str(reg.get('id'))
+            cursor.execute("SELECT 1 FROM op_procesados WHERE op = ?", (num_op_val,))
+            if cursor.fetchone():
+                continue
+                
             try:
                 lista_archivos = json.loads(reg.get('archivos')) if reg.get('archivos') else []
             except:
                 lista_archivos = []
-            reg['lista_pdfs'] = [f"https://{request.host}/descargar/{nombre}" for nombre in lista_archivos]
+            reg['lista_pdfs'] = [f"http://{request.host}/descargar/{nombre}" for nombre in lista_archivos]
             registros.append(reg)
         conn.close()
         return jsonify({"registros": registros}), 200
@@ -491,6 +735,10 @@ def api_sincronizar():
         ids = data.get("ids", [])
         if ids:
             placeholders = ','.join(['?'] * len(ids))
+            
+            for item_id in ids:
+                cursor.execute("INSERT OR IGNORE INTO op_procesados (op) VALUES (?)", (str(item_id),))
+                
             cursor.execute(f"UPDATE documentos SET sincronizado = 1 WHERE id IN ({placeholders})", ids)
             conn.commit()
         conn.close()

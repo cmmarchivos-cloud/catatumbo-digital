@@ -90,6 +90,27 @@
             const contenedor = document.getElementById('camposDinamicos');
             let html = '';
 
+            const camposControlFisico = `
+                <div class="row g-3 mt-2 border-top pt-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-dark">Número de Acta <span class="text-danger">*</span></label>
+                        <input type="text" name="numero_acta" class="form-control" required placeholder="Ej. 00123">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-dark">Tomo</label>
+                        <input type="text" name="tomo" class="form-control" placeholder="Ej. Tomo I">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-dark">Folio</label>
+                        <input type="text" name="folio" class="form-control" placeholder="Ej. Folio 45">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-dark">Año del Acta <span class="text-danger">*</span></label>
+                        <input type="number" name="anio_documento" class="form-control" required placeholder="Ej. 2026" min="1900" max="2100">
+                    </div>
+                </div>
+            `;
+
             if (tipo === "Acta de nacimiento" || tipo === "Acta de matrimonio" || tipo === "Sentencia de divorcio") {
                 html = `
                 <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
@@ -103,15 +124,8 @@
                             <label class="form-label fw-semibold small">Nombre y Apellido del Contrayente Femenino / Cónyuge</label>
                             <input type="text" name="nombre_femenino" class="form-control" required placeholder="Ej. María Gómez">
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold small">Número de Acta</label>
-                            <input type="text" name="numero_acta" class="form-control" required placeholder="Ej. 452">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold small">Año del Acta</label>
-                            <input type="number" name="anio_documento" class="form-control" required placeholder="Ej. 2024" min="1900" max="2100">
-                        </div>
                     </div>
+                    ${camposControlFisico}
                 </div>`;
             } else if (tipo === "Título de cementerio") {
                 html = `
@@ -130,49 +144,32 @@
                             <label class="form-label fw-semibold small">Nombre y Apellido del Titular</label>
                             <input type="text" name="nombre_titular" class="form-control" required placeholder="Ej. Carlos Silva">
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold small">Número de Acta</label>
-                            <input type="text" name="numero_acta" class="form-control" required placeholder="Ej. 889">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold small">Año</label>
-                            <input type="number" name="anio_documento" class="form-control" required placeholder="Ej. 2023" min="1900" max="2100">
-                        </div>
                     </div>
+                    ${camposControlFisico}
                 </div>`;
             } else if (tipo === "Expediente de venta terrenos ejidos") {
                 html = `
                 <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
                     <h5 class="fw-bold text-primary mb-3"><i class="bi bi-geo-alt me-2"></i>Datos de Terrenos Ejidos</h5>
                     <div class="row g-3">
-                        <div class="col-md-6">
+                        <div class="col-md-12">
                             <label class="form-label fw-semibold small">Nombre y Apellido del Titular</label>
                             <input type="text" name="nombre_titular" class="form-control" required placeholder="Ej. Ana Rodríguez">
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold small">Número de Acta</label>
-                            <input type="text" name="numero_acta" class="form-control" required placeholder="Ej. 102">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold small">Año</label>
-                            <input type="number" name="anio_documento" class="form-control" required placeholder="Ej. 2025" min="1900" max="2100">
-                        </div>
                     </div>
+                    ${camposControlFisico}
                 </div>`;
             } else if (tipo === "Actas de sesiones") {
                 html = `
                 <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
                     <h5 class="fw-bold text-primary mb-3"><i class="bi bi-people me-2"></i>Datos de Actas de Sesiones</h5>
                     <div class="row g-3">
-                        <div class="col-md-6">
+                        <div class="col-md-12">
                             <label class="form-label fw-semibold small">Fecha del Acta</label>
                             <input type="date" name="fecha_acta" class="form-control" required>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold small">Número de Acta</label>
-                            <input type="text" name="numero_acta" class="form-control" required placeholder="Ej. 12">
-                        </div>
                     </div>
+                    ${camposControlFisico}
                 </div>`;
             } else if (tipo === "Gaceta oficial") {
                 html = `
@@ -188,29 +185,27 @@
                             <input type="text" name="numero_gaceta" class="form-control" required placeholder="Ej. 4589-A">
                         </div>
                     </div>
+                    ${camposControlFisico}
                 </div>`;
             } else if (tipo === "Expedientes de construcción de urbanismo de Maracaibo OMPU") {
                 html = `
                 <div class="card border-0 bg-light p-4 rounded-3 mb-4 shadow-sm">
                     <h5 class="fw-bold text-primary mb-3"><i class="bi bi-building-fill-gear me-2"></i>Datos OMPU (Urbanismo y Construcción)</h5>
                     <div class="row g-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label fw-semibold small">Nombre del Titular / Urbanizador</label>
                             <input type="text" name="nombre_titular" class="form-control" required placeholder="Ej. Inversiones C.A.">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label fw-semibold small">Fecha</label>
                             <input type="date" name="fecha_documento" class="form-control" required>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label fw-semibold small">Número de Registro</label>
                             <input type="text" name="numero_registro" class="form-control" required placeholder="Ej. REG-998">
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold small">Número de Acta</label>
-                            <input type="text" name="numero_acta" class="form-control" required placeholder="Ej. 55">
-                        </div>
                     </div>
+                    ${camposControlFisico}
                 </div>`;
             } else if (tipo === "Expedientes laborales") {
                 html = `
@@ -230,6 +225,7 @@
                             <input type="date" name="fecha_egreso_lab" class="form-control">
                         </div>
                     </div>
+                    ${camposControlFisico}
                 </div>`;
             }
             contenedor.innerHTML = html;
