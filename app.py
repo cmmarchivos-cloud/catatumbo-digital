@@ -8,31 +8,51 @@ from flask_mail import Mail
 from werkzeug.utils import secure_filename
 import requests
 
-# IMPORTANTE: Importamos el blueprint del módulo de solicitudes
-from solicitudes_bp import solicitudes_bp
-
 app = Flask(__name__)
-app.secret_key = 'catatumbo_digital_secure_secret_key'
+app.secret_key = os.getenv('SECRET_KEY', 'catatumbo_digital_secure_secret_key')
 
-# Inicialización de Flask-Mail
+# --- IMPORTACIÓN SEGURA DE BLUEPRINTS ---
+# Evita que la app colapse si cambia el nombre del archivo del blueprint
+solicitudes_bp = None
+try:
+    from solicitudes_bp import solicitudes_bp
+except ImportError:
+    try:
+        from solicitudes import solicitudes_bp
+    except ImportError:
+        print("ADVERTENCIA: No se pudo cargar el módulo de solicitudes.")
+
+adjuntos_bp = None
+try:
+    from adjuntos_4 import adjuntos_bp
+except ImportError:
+    try:
+        from adjuntos_2 import adjuntos_bp
+    except ImportError:
+        try:
+            from adjuntos import adjuntos_bp
+        except ImportError:
+            print("ADVERTENCIA: No se pudo cargar el módulo de adjuntos.")
+
+if solicitudes_bp:
+    app.register_blueprint(solicitudes_bp)
+
+if adjuntos_bp:
+    app.register_blueprint(adjuntos_bp)
+
+# --- CONFIGURACIÓN DE CORREO ---
 mail = Mail(app)
-
-# Configuración del servidor de correo usando TLS (Puerto 587)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USE_SSL'] = False
-app.config['MAIL_USERNAME'] = 'cmmarchivos@gmail.com'
-app.config['MAIL_PASSWORD'] = 'nzfadbseqdujxfqz'
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', 'cmmarchivos@gmail.com')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', 'nzfadbseqdujxfqz')
 
-# URL oficial de Google Apps Script (Web App)
 GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz7BZ-fBE_F_TYKkyt_7bD4P_KtzZPCFAZQiHhh-R164xQkw779V91L79b1PMHO1H0tJA/exec"
 
 def enviar_correo_por_operacion(numero_operacion):
-    """Envía exclusivamente el número de Operación (op) a Google Apps Script para procesar el envío sin duplicar."""
-    payload = {
-        "op": str(numero_operacion)
-    }
+    payload = {"op": str(numero_operacion)}
     try:
         response = requests.post(GOOGLE_SCRIPT_URL, json=payload, timeout=20)
         return response.json()
@@ -40,10 +60,7 @@ def enviar_correo_por_operacion(numero_operacion):
         print(f"Error de conexión con Google Apps Script: {e}")
         return {"status": "error", "message": str(e)}
 
-# IMPORTANTE: Registramos el blueprint para habilitar las rutas de solicitudes
-app.register_blueprint(solicitudes_bp)
-
-# --- CONFIGURACIÓN HÍBRIDA (Se omite automáticamente al estar en entorno local) ---
+# --- CONFIGURACIÓN HÍBRIDA (PYTHONANYWHERE / LOCAL) ---
 LOCAL_PC_TUNNEL = "https://catatumbodigital.serveousercontent.com"
 IS_PYTHONANYWHERE = 'PYTHONANYWHERE_SITE' in os.environ or os.path.exists('/home/cmmarchivos')
 
@@ -51,7 +68,7 @@ if IS_PYTHONANYWHERE:
     @app.before_request
     def handle_pythonanywhere_proxy():
         try:
-            headers = {key: value for (key, value) in request.headers if key.lower() != 'host'}
+            headers = {key: value for (key, value) in request.headers.items() if key.lower() != 'host'}
             url = f"{LOCAL_PC_TUNNEL}{request.path}"
             if request.query_string:
                 url += f"?{request.query_string.decode('utf-8')}"
@@ -80,27 +97,22 @@ if IS_PYTHONANYWHERE:
         except Exception as e:
             return f"<h3>Error de conexión con la PC local a través de Serveo:</h3><p>{e}</p>", 502
 
-# Rutas de base de datos y almacenamiento local
+# --- RUTAS DE BASE DE DATOS Y DIRECTORIOS ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_NAME = os.path.join(BASE_DIR, 'catatumbo.db')
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'storage_pdf')
-
-# Carpeta separada para los respaldos del sistema
 BACKUP_FOLDER = os.path.join(BASE_DIR, 'system_backups')
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(BACKUP_FOLDER, exist_ok=True)
 
-# Función auxiliar para obtener la fecha y día actual en español
 def obtener_fecha_sistema():
     dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
     meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
     ahora = datetime.now()
-    dia_semana = dias[ahora.weekday()]
-    mes = meses[ahora.month - 1]
     return {
-        "dia": dia_semana,
-        "fecha_completa": f"{dia_semana}, {ahora.day} de {mes} de {ahora.year}",
+        "dia": dias[ahora.weekday()],
+        "fecha_completa": f"{dias[ahora.weekday()]}, {ahora.day} de {meses[ahora.month - 1]} de {ahora.year}",
         "timestamp_archivo": ahora.strftime('%Y-%m-%d_%H-%M-%S')
     }
 
@@ -110,15 +122,12 @@ def get_db_connection():
     return conn
 
 def verificar_clave_master(password_ingresada):
-    """Verifica si la clave ingresada coincide con la contraseña del usuario actual de la sesión."""
     if 'user' not in session:
         return False
     conn = get_db_connection()
     user = conn.execute('SELECT * FROM usuarios WHERE username = ?', (session['user'],)).fetchone()
     conn.close()
-    if user and user['password'] == password_ingresada:
-        return True
-    return False
+    return bool(user and user['password'] == password_ingresada)
 
 def init_db():
     conn = get_db_connection()
@@ -197,8 +206,8 @@ init_db()
 def inject_verse():
     versiculos = [
         ("Proverbios 2:6", "Porque Jehová da la sabiduría, y de su boca viene el conocimiento y la inteligencia."),
-        ("Colosenses 3:23", "Y todo lo que hagáis, hacedlo de corazón, como para el Señor y no para los hombres;"),
-        ("Salmos 90:17", "Sea la luz de Jehová nuestro Dios sobre nosotros, y la obra de nuestras manos confirma sobre nosotros.")
+        ("Colosenses 3:23", "Y todo lo que hiciereis, hacedlo de corazón, como para el Señor y no para los hombres;"),
+        ("Salmos 90:17", "Sea la luz de Jehová nuestro Dios sobre nosotros, y la obra de manos confirma sobre nosotros.")
     ]
     idx = datetime.now().toordinal() % len(versiculos)
     ref, texto = versiculos[idx]
@@ -240,7 +249,7 @@ def load_db():
         d['index_id'] = d['id']
         try:
             d['archivos'] = json.loads(d['archivos']) if d['archivos'] else []
-        except:
+        except Exception:
             d['archivos'] = []
         docs.append(d)
     return docs
@@ -293,6 +302,7 @@ def delete_db_doc(doc_id):
     conn.commit()
     conn.close()
 
+# --- RUTAS PRINCIPALES ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -335,6 +345,7 @@ def buscar():
             query in str(d.get('nombre_femenino') or '').lower() or 
             query in str(d.get('nombre_titular') or '').lower() or 
             query in str(d.get('numero_acta') or '').lower() or
+            query in str(d.get('anio_documento') or '').lower() or
             query in str(d.get('numero_gaceta') or '').lower() or
             query in str(d.get('numero_registro') or '').lower() or
             query in str(d.get('tomo') or '').lower() or
@@ -429,7 +440,7 @@ def editar(idx):
         for arc in archivos_a_eliminar:
             try:
                 os.remove(os.path.join(UPLOAD_FOLDER, arc))
-            except:
+            except Exception:
                 pass
         doc['archivos'] = [a for a in doc.get('archivos', []) if a not in archivos_a_eliminar]
         
@@ -508,7 +519,6 @@ def eliminar_usuario(username):
     if 'user' not in session or session['rol'] != 'master' or username == 'master': 
         return redirect(url_for('gestionar_usuarios'))
         
-    # Corrección para capturar tanto 'password' como 'clave_master' y evitar el error
     clave_ingresada = request.form.get('password', '') or request.form.get('clave_master', '')
     if not verificar_clave_master(clave_ingresada):
         flash('Clave master incorrecta. No se pudo confirmar la eliminación del usuario.', 'danger')
@@ -518,7 +528,7 @@ def eliminar_usuario(username):
     flash('Usuario eliminado.', 'success')
     return redirect(url_for('gestionar_usuarios'))
 
-# --- MÓDULO DE GESTIÓN DEL SISTEMA ---
+# --- MÓDULO DE SISTEMA Y BASE DE DATOS ---
 @app.route('/sistema', methods=['GET'])
 def panel_sistema():
     if 'user' not in session or session['rol'] != 'master':
@@ -526,47 +536,33 @@ def panel_sistema():
         return redirect(url_for('index'))
     
     info_tiempo = obtener_fecha_sistema()
-    
-    respaldos = []
-    if os.path.exists(BACKUP_FOLDER):
-        respaldos = sorted(os.listdir(BACKUP_FOLDER), reverse=True)
-        
+    respaldos = sorted(os.listdir(BACKUP_FOLDER), reverse=True) if os.path.exists(BACKUP_FOLDER) else []
     return render_template('sistema.html', info_tiempo=info_tiempo, respaldos=respaldos)
 
 @app.route('/sistema/respaldar', methods=['POST'])
 def crear_respaldo_db():
-    if 'user' not in session or session['rol'] != 'master':
-        return redirect(url_for('login'))
-    
+    if 'user' not in session or session['rol'] != 'master': return redirect(url_for('login'))
     try:
         info_tiempo = obtener_fecha_sistema()
         nombre_backup = f"catatumbo_respaldo_{info_tiempo['timestamp_archivo']}.db"
-        ruta_destino = os.path.join(BACKUP_FOLDER, nombre_backup)
-        
-        shutil.copyfile(DB_NAME, ruta_destino)
-        flash(f'Respaldo creado exitosamente con el nombre: {nombre_backup}', 'success')
+        shutil.copyfile(DB_NAME, os.path.join(BACKUP_FOLDER, nombre_backup))
+        flash(f'Respaldo creado: {nombre_backup}', 'success')
     except Exception as e:
         flash(f'Error al crear el respaldo: {e}', 'danger')
-        
     return redirect(url_for('panel_sistema'))
 
 @app.route('/sistema/descargar_actual', methods=['GET'])
 def descargar_db_actual():
-    if 'user' not in session or session['rol'] != 'master':
-        return redirect(url_for('login'))
-    
+    if 'user' not in session or session['rol'] != 'master': return redirect(url_for('login'))
     info_tiempo = obtener_fecha_sistema()
-    nombre_descarga = f"catatumbo_db_{info_tiempo['timestamp_archivo']}.db"
-    return send_from_directory(BASE_DIR, 'catatumbo.db', as_attachment=True, download_name=nombre_descarga)
+    return send_from_directory(BASE_DIR, 'catatumbo.db', as_attachment=True, download_name=f"catatumbo_db_{info_tiempo['timestamp_archivo']}.db")
 
 @app.route('/sistema/restaurar', methods=['POST'])
 def restaurar_db():
-    if 'user' not in session or session['rol'] != 'master':
-        return redirect(url_for('login'))
+    if 'user' not in session or session['rol'] != 'master': return redirect(url_for('login'))
     
-    clave_ingresada = request.form.get('clave_master', '')
-    if not verificar_clave_master(clave_ingresada):
-        flash('Clave master incorrecta. Operación de restauración cancelada.', 'danger')
+    if not verificar_clave_master(request.form.get('clave_master', '')):
+        flash('Clave master incorrecta.', 'danger')
         return redirect(url_for('panel_sistema'))
     
     archivo_db = request.files.get('archivo_db')
@@ -574,75 +570,50 @@ def restaurar_db():
         temp_path = os.path.join(BASE_DIR, 'temp_restore.db')
         try:
             archivo_db.save(temp_path)
-            
             conn_test = sqlite3.connect(temp_path)
             conn_test.execute('SELECT COUNT(*) FROM documentos')
             conn_test.close()
             
             os.replace(temp_path, DB_NAME)
-            flash('Base de datos restaurada y actualizada correctamente.', 'success')
+            flash('Base de datos restaurada correctamente.', 'success')
         except Exception as e:
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-            flash(f'Error: El archivo seleccionado no es una base de datos SQLite válida o está corrupto. Detalles: {e}', 'danger')
+            if os.path.exists(temp_path): os.remove(temp_path)
+            flash(f'Error al restaurar base de datos: {e}', 'danger')
     else:
-        flash('Debe seleccionar un archivo con extensión .db válido.', 'danger')
+        flash('Seleccione un archivo .db válido.', 'danger')
         
     return redirect(url_for('panel_sistema'))
 
-# --- MÓDULO DE MANTENIMIENTO DE BASE DE DATOS ---
 @app.route('/base_datos', methods=['GET'])
 def base_datos_admin():
     if 'user' not in session or session['rol'] != 'master':
-        flash('Acceso restringido al Mantenimiento de Base de Datos.', 'danger')
+        flash('Acceso restringido.', 'danger')
         return redirect(url_for('index'))
     return render_template('base_datos.html')
 
-@app.route('/base_datos/editar', methods=['POST'])
-def editar_contenido_db():
-    if 'user' not in session or session['rol'] != 'master':
-        return redirect(url_for('login'))
-    
-    registro_id = request.form.get('registro_id')
-    if registro_id:
-        return redirect(url_for('editar', idx=int(registro_id)))
-    
-    flash('Debe proporcionar un ID de registro válido.', 'warning')
-    return redirect(url_for('base_datos_admin'))
-
 @app.route('/base_datos/borrar', methods=['POST'])
 def borrar_contenido_db():
-    if 'user' not in session or session['rol'] != 'master':
-        return redirect(url_for('login'))
+    if 'user' not in session or session['rol'] != 'master': return redirect(url_for('login'))
     
-    clave_ingresada = request.form.get('clave_master', '')
-    if not verificar_clave_master(clave_ingresada):
-        flash('Clave master incorrecta. Operación de borrado masivo cancelada.', 'danger')
+    if not verificar_clave_master(request.form.get('clave_master', '')):
+        flash('Clave master incorrecta.', 'danger')
         return redirect(url_for('base_datos_admin'))
     
-    tabla_objetivo = request.form.get('tabla_objetivo')
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    tabla = request.form.get('tabla_objetivo')
+    tablas_permitidas = {
+        'solicitudes': 'solicitudes_tramites',
+        'documentos': 'documentos',
+        'papelera': 'papelera_solicitudes'
+    }
     
-    try:
-        if tabla_objetivo == 'solicitudes':
-            cursor.execute("DELETE FROM solicitudes_tramites")
-            conn.commit()
-            flash('La tabla de solicitudes ha sido vaciada exitosamente.', 'success')
-        elif tabla_objetivo == 'documentos':
-            cursor.execute("DELETE FROM documentos")
-            conn.commit()
-            flash('Se han purgado todos los documentos y expedientes de la base de datos.', 'success')
-        elif tabla_objetivo == 'papelera':
-            cursor.execute("DELETE FROM papelera_solicitudes")
-            conn.commit()
-            flash('La papelera del sistema ha sido limpiada.', 'success')
-        else:
-            flash('Seleccione una opción de borrado válida.', 'warning')
-    except Exception as e:
-        flash(f'Error crítico al ejecutar la operación en la base de datos: {e}', 'danger')
-    finally:
+    if tabla in tablas_permitidas:
+        conn = get_db_connection()
+        conn.execute(f"DELETE FROM {tablas_permitidas[tabla]}")
+        conn.commit()
         conn.close()
+        flash(f'Tabla {tabla} vaciada exitosamente.', 'success')
+    else:
+        flash('Opción no válida.', 'warning')
         
     return redirect(url_for('base_datos_admin'))
 
@@ -660,9 +631,7 @@ def ver_archivo(filename):
 def ver_detalle(id):
     if 'user' not in session: return redirect(url_for('login'))
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM documentos WHERE id = ?', (id,))
-    row = cursor.fetchone()
+    row = conn.execute('SELECT * FROM documentos WHERE id = ?', (id,)).fetchone()
     conn.close()
     
     if not row:
@@ -672,7 +641,7 @@ def ver_detalle(id):
     documento = dict(row)
     try:
         documento['archivos'] = json.loads(documento['archivos']) if documento['archivos'] else []
-    except:
+    except Exception:
         documento['archivos'] = []
         
     return render_template('detalle.html', documento=documento)
@@ -680,34 +649,24 @@ def ver_detalle(id):
 @app.route('/enviar_comprobante/<int:id_operacion>', methods=['POST'])
 def enviar_comprobante(id_operacion):
     if 'user' not in session: return redirect(url_for('login'))
-    
     resultado = enviar_correo_por_operacion(id_operacion)
-    
     if resultado.get("status") == "success":
-        codigo = resultado.get("seguridad")
-        flash(f"¡Comprobante enviado con éxito! Código de seguridad generado: {codigo}", "success")
+        flash(f"¡Comprobante enviado! Código de seguridad: {resultado.get('seguridad')}", "success")
     else:
-        flash(resultado.get("message", "Hubo un error al procesar el envío."), "danger")
-        
+        flash(resultado.get("message", "Error al procesar el envío."), "danger")
     return redirect(url_for('ver_detalle', id=id_operacion))
 
-# --- ENDPOINT DE SINCRONIZACION AUTOMATICA CON FILTRO DE EXCLUSIÓN ---
+# --- ENDPOINT API SINCRONIZACIÓN ---
 TOKEN_SECRETO = "Archivoscmm"
 
 @app.route('/api/sincronizar', methods=['GET', 'POST'])
 def api_sincronizar():
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or auth_header != f"Bearer {TOKEN_SECRETO}":
+    if request.headers.get('Authorization') != f"Bearer {TOKEN_SECRETO}":
         return jsonify({"error": "No autorizado"}), 401
         
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS op_procesados (
-            op TEXT PRIMARY KEY
-        )
-    ''')
+    cursor.execute('CREATE TABLE IF NOT EXISTS op_procesados (op TEXT PRIMARY KEY)')
     conn.commit()
     
     if request.method == 'GET':
@@ -715,30 +674,23 @@ def api_sincronizar():
         registros = []
         for row in cursor.fetchall():
             reg = dict(row)
-            
-            num_op_val = str(reg.get('id'))
-            cursor.execute("SELECT 1 FROM op_procesados WHERE op = ?", (num_op_val,))
-            if cursor.fetchone():
+            if cursor.execute("SELECT 1 FROM op_procesados WHERE op = ?", (str(reg.get('id')),)).fetchone():
                 continue
-                
             try:
                 lista_archivos = json.loads(reg.get('archivos')) if reg.get('archivos') else []
-            except:
+            except Exception:
                 lista_archivos = []
-            reg['lista_pdfs'] = [f"http://{request.host}/descargar/{nombre}" for nombre in lista_archivos]
+            reg['lista_pdfs'] = [f"http://{request.host}/descargar/{n}" for n in lista_archivos]
             registros.append(reg)
         conn.close()
         return jsonify({"registros": registros}), 200
         
     elif request.method == 'POST':
-        data = request.json
-        ids = data.get("ids", [])
+        ids = request.json.get("ids", [])
         if ids:
             placeholders = ','.join(['?'] * len(ids))
-            
             for item_id in ids:
                 cursor.execute("INSERT OR IGNORE INTO op_procesados (op) VALUES (?)", (str(item_id),))
-                
             cursor.execute(f"UPDATE documentos SET sincronizado = 1 WHERE id IN ({placeholders})", ids)
             conn.commit()
         conn.close()

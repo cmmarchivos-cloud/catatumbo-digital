@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión Integral de Solicitudes - Archivo Municipal</title>
+    <title>Gestión Integral de Solicitudes - Archivo Municipal[cite: 9]</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
@@ -20,6 +20,7 @@
                 <a class="nav-link px-3 active fw-semibold text-warning" href="/solicitudes"><i class="bi bi-inbox-fill me-1"></i> Solicitudes</a>
                 <a class="nav-link px-3 fw-semibold text-white" href="{{ url_for('solicitudes_bp.ver_papelera') }}"><i class="bi bi-trash-fill me-1"></i> Papelera</a>
                 <a class="nav-link px-3 fw-semibold text-info" href="{{ url_for('solicitudes_bp.estadisticas_trimestrales') }}"><i class="bi bi-bar-chart-fill me-1"></i> Estadísticas Trimestrales</a>
+                <a class="nav-link px-3 fw-semibold text-success" href="{{ url_for('solicitudes_bp.ver_historial_op') }}"><i class="bi bi-clock-history me-1"></i> Historial OP</a>
                 <a class="btn btn-outline-light btn-sm ms-3" href="/logout"><i class="bi bi-power"></i> Salir</a>
             </div>
         </div>
@@ -127,16 +128,19 @@
 
     {% for sol in solicitudes %}
     <div class="modal fade" id="modalDetalle{{ sol.id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content">
-                <form method="POST" action="{{ url_for('solicitudes_bp.procesar_y_guardar', id=sol.id) }}">
-                    <div class="modal-header bg-dark text-white">
+        <div class="modal-dialog modal-xl">
+            <!-- Se fuerza una altura máxima del 88vh con flexbox estricto para que aparezca la barra de desplazamiento interna -->
+            <div class="modal-content" style="max-height: 88vh; display: flex; flex-direction: column;">
+                <form method="POST" action="{{ url_for('solicitudes_bp.procesar_y_guardar', id=sol.id) }}" class="d-flex flex-column overflow-hidden" style="flex: 1; min-height: 0;">
+                    <div class="modal-header bg-dark text-white flex-shrink-0">
                         <h5 class="modal-title">
                             <i class="bi bi-file-earmark-text me-2"></i>Expediente OP-{{ sol.id }} — Detalle del Trámite
                         </h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
-                    <div class="modal-body bg-light p-4">
+                    
+                    <!-- Cuerpo con desplazamiento automático garantizado -->
+                    <div class="modal-body bg-light p-4 overflow-auto" style="flex: 1; min-height: 0;">
                         
                         <div class="card border-0 shadow-sm mb-4">
                             <div class="card-header bg-primary text-white fw-semibold">
@@ -169,10 +173,61 @@
                                         <p class="fw-bold mb-0 text-dark">{{ sol.numero_copias or '1' }}</p>
                                     </div>
                                     
+                                    <!-- Año del Expediente / Título (Aplica para Cementerio, OMPU, Ejidos) -->
+                                    {% if sol.anio_expediente_titulo %}
+                                    <div class="col-md-4">
+                                        <label class="text-muted small">Año del Expediente / Título</label>
+                                        <p class="fw-bold mb-0 text-dark">{{ sol.anio_expediente_titulo }}</p>
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Fecha del Acta (Aplica para Matrimonios y Actas) -->
+                                    {% if sol.fecha_acta %}
+                                    <div class="col-md-4">
+                                        <label class="text-muted small">Fecha del Acta</label>
+                                        <p class="fw-bold mb-0 text-dark">{{ sol.fecha_acta }}</p>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- Titular del Documento -->
                                     {% if sol.nombre_titular %}
                                     <div class="col-md-4">
                                         <label class="text-muted small">Titular del Documento</label>
                                         <p class="fw-bold mb-0 text-dark">{{ sol.nombre_titular }}</p>
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Contrayente Masculino -->
+                                    {% if sol.contrayente_masculino %}
+                                    <div class="col-md-4">
+                                        <label class="text-muted small">Contrayente Masculino</label>
+                                        <p class="fw-bold mb-0 text-dark">{{ sol.contrayente_masculino }}</p>
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Contrayente Femenino -->
+                                    {% if sol.contrayente_femenino %}
+                                    <div class="col-md-4">
+                                        <label class="text-muted small">Contrayente Femenino</label>
+                                        <p class="fw-bold mb-0 text-dark">{{ sol.contrayente_femenino }}</p>
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Datos Adicionales del Expediente (OMPU) -->
+                                    {% if sol.datos_expediente %}
+                                    <div class="col-md-12">
+                                        <label class="text-muted small">Datos Adicionales del Expediente (OMPU)</label>
+                                        <p class="fw-bold mb-0 text-dark">{{ sol.datos_expediente }}</p>
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Archivo Adjunto / Soporte en Google Drive -->
+                                    {% if sol.url_adjunto_copia %}
+                                    <div class="col-md-12 mt-2 p-2 bg-white border rounded">
+                                        <label class="text-muted small d-block mb-1"><i class="bi bi-paperclip text-danger me-1"></i>Archivo Adjunto / Soporte del Ciudadano</label>
+                                        <a href="{{ sol.url_adjunto_copia }}" target="_blank" class="btn btn-sm btn-outline-danger fw-bold">
+                                            <i class="bi bi-box-arrow-up-right me-1"></i> Abrir Archivo Adjunto en Google Drive
+                                        </a>
                                     </div>
                                     {% endif %}
                                 </div>
@@ -218,7 +273,7 @@
                         </div>
 
                     </div>
-                    <div class="modal-footer bg-white d-flex justify-content-between">
+                    <div class="modal-footer bg-white d-flex justify-content-between flex-shrink-0">
                         <div>
                             <button type="submit" formaction="{{ url_for('solicitudes_bp.procesar_solicitud', num_op=sol.id) }}" formmethod="POST" class="btn btn-outline-secondary btn-sm fw-semibold" onclick="return confirm('¿Confirma que desea procesar y retirar este trámite de la bandeja activa? Quedará registrado en el historial de control.');">
                                 <i class="bi bi-check2-all me-1"></i> Procesar y Archivar OP

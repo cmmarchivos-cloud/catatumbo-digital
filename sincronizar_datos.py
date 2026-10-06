@@ -8,7 +8,7 @@ import urllib.request
 DB_PATH = "catatumbo.db"
 SPREADSHEET_ID = "1cVtzyJ2Y7X9N1fZ9rGZgLxPazXjnuaGg7eIZFVwgX7k"
 
-# Enlaces directos configurados con sus respectivos gids para las 4 pestañas
+# Enlaces directos configurados con sus respectivos gids y nombres de pestañas
 SHEET_CSV_URLS = [
     (f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=1341303465", "Título de Cementerio"),
     (f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=872085590", "Solicitud de OMPU"),
@@ -49,8 +49,48 @@ def asegurar_estructura_bd(cursor):
         )
     """)
 
+def mostrar_detalle_registros():
+    """Muestra por consola el desglose detallado de todos los campos almacenados en la BD."""
+    if not os.path.exists(DB_PATH):
+        return
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, marca_temporal, nombre_solicitante, apellido_solicitante, cedula_solicitante, 
+               tipo_documento, parentesco, numero_copias, anio_expediente_titulo, 
+               fecha_acta, nombre_titular, contrayente_masculino, contrayente_femenino, 
+               datos_expediente, url_adjunto_copia, estado
+        FROM solicitudes_tramites
+    """)
+    registros = cursor.fetchall()
+    conn.close()
+
+    print("\n" + "="*90)
+    print(" 🔍 INSPECCIÓN DETALLADA DE CAMPOS EN LA BASE DE DATOS")
+    print("="*90)
+    
+    if not registros:
+        print("[!] No hay registros almacenados actualmente.")
+        return
+
+    for reg in registros:
+        print(f"[{reg[0]}] Tipo / Módulo: {reg[5]}")
+        print(f"    • Marca Temporal   : {reg[1]}")
+        print(f"    • Solicitante      : {reg[2]} {reg[3]} (Cédula: {reg[4]})")
+        print(f"    • Parentesco       : {reg[6] or 'N/A'}")
+        print(f"    • Número de Copias : {reg[7] or 'N/A'}")
+        print(f"    • Año Exp / Título : {reg[8] or 'N/A'}")
+        print(f"    • Fecha de Acta    : {reg[9] or 'N/A'}")
+        print(f"    • Nombre Titular   : {reg[10] or 'N/A'}")
+        print(f"    • Contrayentes     : Masc: [{reg[11] or 'N/A'}] / Fem: [{reg[12] or 'N/A'}]")
+        print(f"    • Datos Expediente : {reg[13] or 'N/A'}")
+        print(f"    • Archivo Adjunto  : {reg[14] or 'N/A'}")
+        print(f"    • Estado Actual    : {reg[15]}")
+        print("-" * 90)
+
 def ejecutar_sincronizacion():
-    print("[*] Sincronizando datos hacia la tabla 'solicitudes_tramites' (Modo Anti-Duplicados con Depuración)...")
+    print("[*] Sincronizando datos hacia la tabla 'solicitudes_tramites' (Modo Depuración Activo)...")
     
     if not os.path.exists(DB_PATH):
         print(f"[!] No se encontró la base de datos local en '{DB_PATH}'.")
@@ -93,44 +133,83 @@ def ejecutar_sincronizacion():
                     nombre_solicitante = row[2] if total_cols > 2 else ""
                     apellido_solicitante = row[3] if total_cols > 3 else ""
                     cedula_solicitante = row[4] if total_cols > 4 else ""
-                    nacionalidad = row[5] if total_cols > 5 else ""
-                    correo_solicitante = row[6] if total_cols > 6 else ""
-                    parentesco = row[7] if total_cols > 7 else ""
-                    tipo_documento = row[8] if total_cols > 8 else nombre_pestana
-                    numero_copias = row[9] if total_cols > 9 else ""
-                    anio_expediente = row[10] if total_cols > 10 else ""
-                    nombre_titular = row[11] if total_cols > 11 else ""
-                    
-                    contrayente_masculino = row[12] if total_cols > 12 else ""
-                    contrayente_femenino = row[13] if total_cols > 13 else ""
+                    nacionalidad = row[5] if total_cols > 5 else "V"
+                    correo_solicitante = row[6] if total_cols > 6 else correo_google
 
-                    # Línea de depuración para inspeccionar cada fila leída del CSV
-                    print(f"Leyendo fila -> Cédula: {cedula_solicitante} | Fecha: {marca_temporal}")
+                    parentesco = ""
+                    tipo_documento = nombre_pestana
+                    numero_copias = ""
+                    anio_expediente = ""
+                    fecha_acta = ""
+                    nombre_titular = ""
+                    contrayente_masculino = ""
+                    contrayente_femenino = ""
+                    datos_expediente = ""
+                    url_adjunto_copia = ""
 
-                    # Validar si el registro ya existe usando Marca Temporal y Cédula como clave única
+                    if "Matrimonio" in nombre_pestana:
+                        parentesco = row[7] if total_cols > 7 else ""
+                        tipo_documento = row[8] if total_cols > 8 else nombre_pestana
+                        fecha_acta = row[9] if total_cols > 9 else ""
+                        numero_copias = row[10] if total_cols > 10 else ""
+                        contrayente_masculino = row[11] if total_cols > 11 else ""
+                        contrayente_femenino = row[12] if total_cols > 12 else ""
+                        nombre_titular = f"Contrayentes: {contrayente_masculino} / {contrayente_femenino}".strip(" /")
+                        if total_cols > 13:
+                            url_adjunto_copia = row[13]
+
+                    elif "Cementerio" in nombre_pestana:
+                        tipo_documento = row[7] if total_cols > 7 else nombre_pestana
+                        parentesco = row[8] if total_cols > 8 else ""
+                        anio_expediente = row[9] if total_cols > 9 else ""
+                        numero_copias = row[10] if total_cols > 10 else ""
+                        nombre_titular = row[11] if total_cols > 11 else ""
+                        if total_cols > 12:
+                            url_adjunto_copia = row[12]
+
+                    elif "OMPU" in nombre_pestana:
+                        tipo_documento = row[7] if total_cols > 7 else nombre_pestana
+                        parentesco = row[8] if total_cols > 8 else ""
+                        anio_expediente = row[9] if total_cols > 9 else ""
+                        numero_copias = row[10] if total_cols > 10 else ""
+                        datos_expediente = row[11] if total_cols > 11 else ""
+                        if total_cols > 12:
+                            url_adjunto_copia = row[12]
+
+                    elif "Ejidos" in nombre_pestana:
+                        parentesco = row[7] if total_cols > 7 else ""
+                        tipo_documento = row[8] if total_cols > 8 else nombre_pestana
+                        anio_expediente = row[9] if total_cols > 9 else ""
+                        nombre_titular = row[10] if total_cols > 10 else ""
+                        numero_copias = row[11] if total_cols > 11 else ""
+                        if total_cols > 12:
+                            url_adjunto_copia = row[12]
+
+                    # Validación anti-duplicados
                     if marca_temporal and cedula_solicitante:
                         cursor.execute("""
                             SELECT 1 FROM solicitudes_tramites 
-                            WHERE marca_temporal = ? AND cedula_solicitante = ?
-                        """, (marca_temporal, cedula_solicitante))
+                            WHERE marca_temporal = ? AND cedula_solicitante = ? AND tipo_documento = ?
+                        """, (marca_temporal, cedula_solicitante, tipo_documento))
                         
                         if cursor.fetchone():
                             duplicados_omitidos += 1
                             continue
 
-                    # Insertar nuevo registro en la base de datos local
                     cursor.execute("""
                         INSERT INTO solicitudes_tramites (
-                            marca_temporal, correo_google, nombre_solicitante, apellido_solicitante,
-                            cedula_solicitante, nacionalidad, correo_solicitante, parentesco,
-                            tipo_documento, numero_copias, anio_expediente_titulo, nombre_titular,
-                            contrayente_masculino, contrayente_femenino, estado, sincronizado
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', 1)
+                            marca_temporal, correo_google, correo_solicitante, nombre_solicitante, apellido_solicitante,
+                            nacionalidad, cedula_solicitante, tipo_documento, parentesco,
+                            numero_copias, anio_expediente_titulo, fecha_acta, 
+                            nombre_titular, contrayente_masculino, contrayente_femenino, 
+                            datos_expediente, url_adjunto_copia, estado, sincronizado
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', 1)
                     """, (
-                        marca_temporal, correo_google, nombre_solicitante, apellido_solicitante,
-                        cedula_solicitante, nacionalidad, correo_solicitante, parentesco,
-                        tipo_documento, numero_copias, anio_expediente, nombre_titular,
-                        contrayente_masculino, contrayente_femenino
+                        marca_temporal, correo_google, correo_solicitante, nombre_solicitante, apellido_solicitante,
+                        nacionalidad, cedula_solicitante, tipo_documento, parentesco,
+                        numero_copias, anio_expediente, fecha_acta,
+                        nombre_titular, contrayente_masculino, contrayente_femenino,
+                        datos_expediente, url_adjunto_copia
                     ))
                     
                     nuevos_registros += 1
@@ -147,6 +226,9 @@ def ejecutar_sincronizacion():
         print(f"\n[✓] Sincronización completada con éxito.")
         print(f"    - Registros nuevos agregados: {nuevos_registros}")
         print(f"    - Duplicados omitidos: {duplicados_omitidos}")
+
+        # Llamar a la función de detalle para mostrar la data en consola
+        mostrar_detalle_registros()
 
     except Exception as e:
         if 'conn' in locals() and conn:

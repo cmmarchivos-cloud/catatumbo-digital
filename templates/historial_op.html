@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Historial de Trámites Procesados - Archivo Municipal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded shadow-sm">
+            <h3><i class="bi bi-clock-history text-success me-2"></i>Historial Acumulativo de OP Procesadas</h3>
+            <div>
+                <a href="{{ url_for('solicitudes_bp.ver_papelera_historial') }}" class="btn btn-outline-danger btn-sm me-2"><i class="bi bi-trash-fill me-1"></i> Papelera del Historial</a>
+                <a href="/solicitudes" class="btn btn-outline-dark btn-sm"><i class="bi bi-arrow-left me-1"></i> Volver a Solicitudes</a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>N° OP</th>
+                            <th>Año Expediente</th>
+                            <th>Tomo</th>
+                            <th>Folio</th>
+                            <th>Acta</th>
+                            <th>Monto</th>
+                            <th>Fecha de Proceso</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in historial %}
+                        <tr>
+                            <td>{{ item.id }}</td>
+                            <td class="fw-bold text-primary">OP-{{ item.op }}</td>
+                            <td>{{ item.anio_expediente_titulo or '---' }}</td>
+                            <td>{{ item.tomo or '---' }}</td>
+                            <td>{{ item.folio or '---' }}</td>
+                            <td>{{ item.num_acta or '---' }}</td>
+                            <td>{{ item.monto or '---' }}</td>
+                            <td><small class="text-muted">{{ item.fecha_proceso }}</small></td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-primary fw-semibold" data-bs-toggle="modal" data-bs-target="#modalEditar{{ item.id }}">
+                                    <i class="bi bi-pencil-square"></i> Editar
+                                </button>
+                                <a href="{{ url_for('solicitudes_bp.eliminar_historial_op', id=item.id) }}" class="btn btn-sm btn-outline-danger fw-semibold" onclick="return confirm('¿Estás seguro de enviar este registro a la papelera del historial?');">
+                                    <i class="bi bi-trash"></i> Eliminar
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">No hay trámites procesados en el historial todavía.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modales de Edición para cada elemento del Historial -->
+    {% for item in historial %}
+    <div class="modal fade" id="modalEditar{{ item.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="POST" action="{{ url_for('solicitudes_bp.editar_historial_op', id=item.id) }}" class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Editar Registro OP-{{ item.op }}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body bg-light">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Número de OP</label>
+                        <input type="text" class="form-control" name="op" value="{{ item.op }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Año del Expediente / Título</label>
+                        <input type="text" class="form-control" name="anio_expediente_titulo" value="{{ item.anio_expediente_titulo or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Tomo</label>
+                        <input type="text" class="form-control" name="tomo" value="{{ item.tomo or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Folio</label>
+                        <input type="text" class="form-control" name="folio" value="{{ item.folio or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Número de Acta</label>
+                        <input type="text" class="form-control" name="num_acta" value="{{ item.num_acta or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Monto</label>
+                        <input type="text" class="form-control" name="monto" value="{{ item.monto or '' }}">
+                    </div>
+                </div>
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

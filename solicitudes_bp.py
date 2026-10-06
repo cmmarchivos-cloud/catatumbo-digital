@@ -7,11 +7,13 @@ import urllib.request
 import urllib.parse
 import smtplib
 import traceback
+import os
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
+from werkzeug.utils import secure_filename
 
 from base_datos import get_db
 
@@ -26,10 +28,9 @@ def obtener_trimestre(fecha_str):
         return "Sin Fecha"
     fecha_limpia = fecha_str.strip()
     
-    # Intentar formatos estándar de fecha y hora
     formatos = (
         "%Y-%m-%d %H:%M:%S", "%m/%d/%Y %H:%M:%S", "%Y-%m-%d", 
-        "%m/%d/%Y", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y", "%Y/%m/%d %H:%M:%S", "%Y/%m/%d"
+        "%m/%d/%Y", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y", "%Y-%m-%d %H:%M:%S", "%Y/%d/%m"
     )
     for fmt in formatos:
         try:
@@ -40,7 +41,6 @@ def obtener_trimestre(fecha_str):
         except ValueError:
             continue
             
-    # Respaldo inteligente buscando año y mes mediante extracción numérica si el formato es atípico
     try:
         import re
         match_anio = re.search(r'\b(20\d{2})\b', fecha_limpia)
@@ -57,7 +57,176 @@ def obtener_trimestre(fecha_str):
         
     return "Desconocido"
 
-# --- VISTA PRINCIPAL ---
+# --- VISTA INDEPENDIENTE: GESTIÓN DE ARCHIVOS Y ADJUNTOS ---
+@solicitudes_bp.route('/adjuntos')
+def vista_adjuntos():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+        
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS adjuntos_escanner (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre_solicitante TEXT NOT NULL,
+            apellido_solicitante TEXT NOT NULL,
+            nacionalidad TEXT NOT NULL,
+            cedula_solicitante TEXT NOT NULL,
+            nombre_funcionario TEXT NOT NULL,
+            tipo_documento TEXT NOT NULL,
+            numero_acta TEXT,
+            anio INTEGER,
+            tomo TEXT,
+            folio TEXT,
+            url_adjunto_copia TEXT,
+            fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    
+    solicitudes = conn.execute(
+        "SELECT * FROM adjuntos_escanner ORDER BY id DESC"
+    ).fetchall()
+    conn.close()
+    
+    return render_template('adjuntos.html', solicitudes=solicitudes)
+
+# --- RUTA: GUARDAR ADJUNTO Y REGISTRO DE ESCÁNER ---
+@solicitudes_bp.route('/guardar-adjunto', methods=['POST'])
+def guardar_adjunto():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    
+    nombre_solicitante = request.form.get('nombre_solicitante', '')
+    apellido_solicitante = request.form.get('apellido_solicitante', '')
+    nacionalidad = request.form.get('nacionalidad', 'V')
+    cedula_solicitante = request.form.get('cedula_solicitante', '')
+    nombre_funcionario = request.form.get('nombre_funcionario', '')
+    tipo_documento = request.form.get('tipo_documento', 'Acta')
+    numero_acta = request.form.get('numero_acta', '')
+    anio = request.form.get('anio', datetime.now().year)
+    tomo = request.form.get('tomo', '')
+    folio = request.form.get('folio', '')
+    
+    archivo = request.files.get('url_adjunto_copia')
+    url_adjunto = None
+    
+    if archivo and archivo.filename != '':
+        filename = secure_filename(archivo.filename)
+        upload_folder = os.path.join('static', 'uploads')
+        os.makedirs(upload_folder, exist_ok=True)
+        
+        ruta_guardado = os.path.join(upload_folder, filename)
+        archivo.save(ruta_guardado)
+        
+        url_adjunto = url_for('static', filename=f'uploads/{filename}')
+
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            INSERT INTO adjuntos_escanner (
+                nombre_solicitante, apellido_solicitante, nacionalidad, cedula_solicitante,
+                nombre_funcionario, tipo_documento, numero_acta, anio, tomo, folio, url_adjunto_copia
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            nombre_solicitante, apellido_solicitante, nacionalidad, cedula_solicitante,
+            nombre_funcionario, tipo_documento, numero_acta, anio, tomo, folio, url_adjunto
+        ))
+        
+        conn.commit()
+        conn.close()
+        flash('✅ Documento, metadatos y archivo adjunto guardados correctamente.', 'success')
+    except Exception as e:
+        flash(f'❌ Error al guardar en la base de datos: {str(e)}', 'danger')
+
+    return redirect(url_for('solicitudes_bp.vista_adjuntos'))
+
+# --- RUTA: ACTUALIZAR REGISTRO Y ADJUNTO EXISTENTE ---
+@solicitudes_bp.route('/adjuntos/actualizar/<int:id>', methods=['POST'])
+def actualizar_adjunto(id):
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    
+    nombre_solicitante = request.form.get('nombre_solicitante', '')
+    apellido_solicitante = request.form.get('apellido_solicitante', '')
+    nacionalidad = request.form.get('nacionalidad', 'V')
+    cedula_solicitante = request.form.get('cedula_solicitante', '')
+    nombre_funcionario = request.form.get('nombre_funcionario', '')
+    tipo_documento = request.form.get('tipo_documento', 'Acta')
+    numero_acta = request.form.get('numero_acta', '')
+    anio = request.form.get('anio', datetime.now().year)
+    tomo = request.form.get('tomo', '')
+    folio = request.form.get('folio', '')
+    
+    archivo = request.files.get('url_adjunto_copia')
+    
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        if archivo and archivo.filename != '':
+            filename = secure_filename(archivo.filename)
+            upload_folder = os.path.join('static', 'uploads')
+            os.makedirs(upload_folder, exist_ok=True)
+            
+            ruta_guardado = os.path.join(upload_folder, filename)
+            archivo.save(ruta_guardado)
+            url_adjunto = url_for('static', filename=f'uploads/{filename}')
+            
+            cursor.execute("""
+                UPDATE adjuntos_escanner SET 
+                    nombre_solicitante = ?, apellido_solicitante = ?, nacionalidad = ?, cedula_solicitante = ?,
+                    nombre_funcionario = ?, tipo_documento = ?, numero_acta = ?, anio = ?, tomo = ?, folio = ?, url_adjunto_copia = ?
+                WHERE id = ?
+            """, (nombre_solicitante, apellido_solicitante, nacionalidad, cedula_solicitante, 
+                  nombre_funcionario, tipo_documento, numero_acta, anio, tomo, folio, url_adjunto, id))
+        else:
+            cursor.execute("""
+                UPDATE adjuntos_escanner SET 
+                    nombre_solicitante = ?, apellido_solicitante = ?, nacionalidad = ?, cedula_solicitante = ?,
+                    nombre_funcionario = ?, tipo_documento = ?, numero_acta = ?, anio = ?, tomo = ?, folio = ?
+                WHERE id = ?
+            """, (nombre_solicitante, apellido_solicitante, nacionalidad, cedula_solicitante, 
+                  nombre_funcionario, tipo_documento, numero_acta, anio, tomo, folio, id))
+            
+        conn.commit()
+        conn.close()
+        flash('✅ Registro actualizado correctamente.', 'success')
+    except Exception as e:
+        flash(f'❌ Error al actualizar el registro: {str(e)}', 'danger')
+
+    return redirect(url_for('solicitudes_bp.vista_adjuntos'))
+
+# --- RUTA: ELIMINAR REGISTRO Y ARCHIVO ADJUNTO ---
+@solicitudes_bp.route('/adjuntos/eliminar/<int:id>')
+def eliminar_adjunto(id):
+    if 'user' not in session:
+        return redirect(url_for('login'))
+        
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    row = cursor.execute("SELECT url_adjunto_copia FROM adjuntos_escanner WHERE id = ?", (id,)).fetchone()
+    if row and row['url_adjunto_copia']:
+        url_path = row['url_adjunto_copia']
+        if url_path.startswith('/'):
+            relative_path = url_path.lstrip('/')
+            if os.path.exists(relative_path):
+                try:
+                    os.remove(relative_path)
+                except Exception:
+                    pass
+                    
+    cursor.execute("DELETE FROM adjuntos_escanner WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+    
+    flash('🗑️ Registro de adjunto y archivo eliminados correctamente.', 'info')
+    return redirect(url_for('solicitudes_bp.vista_adjuntos'))
+
+# --- VISTA PRINCIPAL DE SOLICITUDES ---
 @solicitudes_bp.route('/solicitudes')
 def ver_solicitudes():
     if 'user' not in session:
@@ -67,7 +236,6 @@ def ver_solicitudes():
     solicitudes = conn.execute("SELECT * FROM solicitudes_tramites ORDER BY id DESC").fetchall()
     conn.close()
     
-    # Recuperar datos temporales del expediente seleccionado (si existen)
     expediente_activo = session.get('expediente_activo', {})
     
     return render_template('solicitudes.html', solicitudes=solicitudes, expediente_activo=expediente_activo)
@@ -262,8 +430,6 @@ def procesar_y_guardar(id):
             WHERE id = ?
         ''', (anio_expediente, tomo, folio, num_acta, monto, estado, codigo_seguridad, id))
         conn.commit()
-        
-        # Limpiar el expediente activo de la sesión una vez procesado con éxito
         session.pop('expediente_activo', None)
     except Exception as e:
         print(f"[!] Error actualizando base de datos: {e}")
@@ -277,25 +443,153 @@ def procesar_solicitud(num_op):
     if 'user' not in session:
         return redirect(url_for('login'))
 
+    anio_expediente = request.form.get('anio_expediente_titulo')
+    tomo = request.form.get('tomo')
+    folio = request.form.get('folio')
+    num_acta = request.form.get('num_acta')
+    monto = request.form.get('monto')
+    estado = request.form.get('estado', 'PROCESADA')
+
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS op_procesados (
-            op TEXT PRIMARY KEY
-        )
-    ''')
+    cursor.execute("""
+        INSERT INTO op_procesados (op, tomo, folio, num_acta, monto, anio_expediente_titulo, fecha_proceso) 
+        VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+    """, (num_op, tomo, folio, num_acta, monto, anio_expediente))
 
-    cursor.execute("INSERT OR IGNORE INTO op_procesados (op) VALUES (?)", (num_op,))
     cursor.execute("DELETE FROM solicitudes_tramites WHERE id = ?", (num_op,))
     
     conn.commit()
     conn.close()
 
-    flash("Trámite procesado y registrado con éxito.", "success")
+    flash(f"Trámite OP-{num_op} procesado, verificado y archivado con éxito en el historial.", "success")
     return redirect(url_for('solicitudes_bp.ver_solicitudes'))
 
-# --- ELIMINAR SOLICITUD ( ENVÍO A PAPELERA DE RECICLAJE ) ---
+# --- VISTA HISTORIAL DE OP PROCESADAS ---
+@solicitudes_bp.route('/solicitudes/historial-op')
+def ver_historial_op():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+        
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS op_procesados (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            op TEXT, tomo TEXT, folio TEXT, num_acta TEXT, monto TEXT, anio_expediente_titulo TEXT, fecha_proceso TIMESTAMP
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS papelera_op_procesados (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            op TEXT, tomo TEXT, folio TEXT, num_acta TEXT, monto TEXT, anio_expediente_titulo TEXT, fecha_proceso TIMESTAMP
+        )
+    ''')
+    
+    historial = cursor.execute("SELECT * FROM op_procesados ORDER BY id DESC").fetchall()
+    conn.close()
+    
+    return render_template('historial_op.html', historial=historial)
+
+@solicitudes_bp.route('/solicitudes/historial-op/editar/<int:id>', methods=['POST'])
+def editar_historial_op(id):
+    if 'user' not in session:
+        return redirect(url_for('login'))
+        
+    op = request.form.get('op')
+    anio_expediente = request.form.get('anio_expediente_titulo')
+    tomo = request.form.get('tomo')
+    folio = request.form.get('folio')
+    num_acta = request.form.get('num_acta')
+    monto = request.form.get('monto')
+    
+    conn = get_db()
+    conn.execute('''
+        UPDATE op_procesados 
+        SET op = ?, anio_expediente_titulo = ?, tomo = ?, folio = ?, num_acta = ?, monto = ?
+        WHERE id = ?
+    ''', (op, anio_expediente, tomo, folio, num_acta, monto, id))
+    conn.commit()
+    conn.close()
+    
+    flash('✏️ Registro del historial actualizado con éxito.', 'success')
+    return redirect(url_for('solicitudes_bp.ver_historial_op'))
+
+@solicitudes_bp.route('/solicitudes/historial-op/eliminar/<int:id>')
+def eliminar_historial_op(id):
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT * FROM op_procesados WHERE id = ?", (id,))
+    row = cursor.fetchone()
+
+    if row:
+        cursor.execute('''
+            INSERT INTO papelera_op_procesados (op, tomo, folio, num_acta, monto, anio_expediente_titulo, fecha_proceso)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (row['op'], row['tomo'], row['folio'], row['num_acta'], row['monto'], row['anio_expediente_titulo'], row['fecha_proceso']))
+
+        cursor.execute("DELETE FROM op_procesados WHERE id = ?", (id,))
+
+    conn.commit()
+    conn.close()
+    
+    flash('🗑️ Registro del historial enviado a la papelera.', 'info')
+    return redirect(url_for('solicitudes_bp.ver_historial_op'))
+
+@solicitudes_bp.route('/solicitudes/historial-op/papelera')
+def ver_papelera_historial():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+        
+    conn = get_db()
+    cursor = conn.cursor()
+    papelera = cursor.execute("SELECT * FROM papelera_op_procesados ORDER BY id DESC").fetchall()
+    conn.close()
+    
+    return render_template('papelera_historial.html', papelera=papelera)
+
+@solicitudes_bp.route('/solicitudes/historial-op/papelera/restaurar/<int:id>')
+def restaurar_historial_op(id):
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    conn = get_db()
+    cursor = conn.cursor()
+    row = cursor.execute("SELECT * FROM papelera_op_procesados WHERE id = ?", (id,)).fetchone()
+
+    if row:
+        cursor.execute('''
+            INSERT INTO op_procesados (op, tomo, folio, num_acta, monto, anio_expediente_titulo, fecha_proceso)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (row['op'], row['tomo'], row['folio'], row['num_acta'], row['monto'], row['anio_expediente_titulo'], row['fecha_proceso']))
+        cursor.execute("DELETE FROM papelera_op_procesados WHERE id = ?", (id,))
+
+    conn.commit()
+    conn.close()
+
+    flash('♻️ Registro del historial restaurado con éxito.', 'success')
+    return redirect(url_for('solicitudes_bp.ver_papelera_historial'))
+
+@solicitudes_bp.route('/solicitudes/historial-op/papelera/eliminar-definitivo/<int:id>')
+def eliminar_definitivo_historial_op(id):
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM papelera_op_procesados WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+
+    flash('⚡ Registro eliminado permanentemente de la papelera.', 'warning')
+    return redirect(url_for('solicitudes_bp.ver_papelera_historial'))
+
 @solicitudes_bp.route('/solicitudes/eliminar/<int:id>')
 def eliminar_solicitud(id):
     if 'user' not in session:
@@ -303,32 +597,6 @@ def eliminar_solicitud(id):
 
     conn = get_db()
     cursor = conn.cursor()
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS papelera_solicitudes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            marca_temporal TEXT,
-            correo_solicitante TEXT,
-            apellido_solicitante TEXT,
-            nombre_solicitante TEXT,
-            nacionalidad TEXT,
-            cedula_solicitante TEXT,
-            tipo_documento TEXT,
-            parentesco TEXT,
-            numero_copias TEXT,
-            nombre_titular TEXT,
-            estado TEXT
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS registros_excluidos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cedula TEXT,
-            marca_temporal TEXT,
-            tipo_documento TEXT
-        )
-    ''')
-
     cursor.execute("SELECT * FROM solicitudes_tramites WHERE id = ?", (id,))
     row = cursor.fetchone()
 
@@ -345,12 +613,10 @@ def eliminar_solicitud(id):
             row['tipo_documento'], row['parentesco'], row['numero_copias'], 
             row['nombre_titular'], row['estado']
         ))
-
         cursor.execute("""
             INSERT INTO registros_excluidos (cedula, marca_temporal, tipo_documento) 
             VALUES (?, ?, ?)
         """, (row['cedula_solicitante'], row['marca_temporal'], row['tipo_documento']))
-
         cursor.execute("DELETE FROM solicitudes_tramites WHERE id = ?", (id,))
 
     conn.commit()
@@ -359,7 +625,6 @@ def eliminar_solicitud(id):
     flash('🗑️ Solicitud enviada a la papelera de reciclaje.', 'info')
     return redirect(url_for('solicitudes_bp.ver_solicitudes'))
 
-# --- VISTA PAPELERA DE RECICLAJE ---
 @solicitudes_bp.route('/solicitudes/papelera')
 def ver_papelera():
     if 'user' not in session:
@@ -367,20 +632,11 @@ def ver_papelera():
         
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS papelera_solicitudes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            marca_temporal TEXT, correo_solicitante TEXT, apellido_solicitante TEXT, 
-            nombre_solicitante TEXT, nacionalidad TEXT, cedula_solicitante TEXT, 
-            tipo_documento TEXT, parentesco TEXT, numero_copias TEXT, nombre_titular TEXT, estado TEXT
-        )
-    ''')
     papelera = cursor.execute("SELECT * FROM papelera_solicitudes ORDER BY id DESC").fetchall()
     conn.close()
     
     return render_template('papelera.html', papelera=papelera)
 
-# --- RESTAURAR DESDE PAPELERA ---
 @solicitudes_bp.route('/solicitudes/papelera/restaurar/<int:id>', methods=['GET', 'POST'])
 def restaurar_solicitud(id):
     if 'user' not in session:
@@ -388,9 +644,7 @@ def restaurar_solicitud(id):
 
     conn = get_db()
     cursor = conn.cursor()
-
-    cursor.execute("SELECT * FROM papelera_solicitudes WHERE id = ?", (id,))
-    row = cursor.fetchone()
+    row = cursor.execute("SELECT * FROM papelera_solicitudes WHERE id = ?", (id,)).fetchone()
 
     if row:
         cursor.execute("""
@@ -405,12 +659,10 @@ def restaurar_solicitud(id):
             row['tipo_documento'], row['parentesco'], row['numero_copias'], 
             row['nombre_titular'], row['estado']
         ))
-
         cursor.execute("""
             DELETE FROM registros_excluidos 
             WHERE cedula = ? AND marca_temporal = ? AND tipo_documento = ?
         """, (row['cedula_solicitante'], row['marca_temporal'], row['tipo_documento']))
-
         cursor.execute("DELETE FROM papelera_solicitudes WHERE id = ?", (id,))
 
     conn.commit()
@@ -419,7 +671,6 @@ def restaurar_solicitud(id):
     flash('♻️ Solicitud restaurada con éxito a la bandeja principal.', 'success')
     return redirect(url_for('solicitudes_bp.ver_papelera'))
 
-# --- ELIMINAR DEFINITIVO DESDE PAPELERA ---
 @solicitudes_bp.route('/solicitudes/papelera/eliminar-definitivo/<int:id>', methods=['GET', 'POST'])
 def eliminar_definitivo(id):
     if 'user' not in session:
@@ -434,7 +685,6 @@ def eliminar_definitivo(id):
     flash('⚡ Registro eliminado permanentemente de la papelera.', 'warning')
     return redirect(url_for('solicitudes_bp.ver_papelera'))
 
-# --- INFORME DE ESTADÍSTICAS TRIMESTRALES (ACTUALIZADO) ---
 @solicitudes_bp.route('/solicitudes/estadisticas')
 def estadisticas_trimestrales():
     if 'user' not in session:
@@ -442,22 +692,11 @@ def estadisticas_trimestrales():
 
     conn = get_db()
     cursor = conn.cursor()
-    
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS papelera_solicitudes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            marca_temporal TEXT, correo_solicitante TEXT, apellido_solicitante TEXT, 
-            nombre_solicitante TEXT, nacionalidad TEXT, cedula_solicitante TEXT, 
-            tipo_documento TEXT, parentesco TEXT, numero_copias TEXT, nombre_titular TEXT, estado TEXT
-        )
-    ''')
-
     activas = cursor.execute("SELECT estado, marca_temporal FROM solicitudes_tramites").fetchall()
     papelera = cursor.execute("SELECT marca_temporal FROM papelera_solicitudes").fetchall()
     conn.close()
 
     estadisticas = {}
-
     def asegurar_trimestre(trim):
         if trim not in estadisticas:
             estadisticas[trim] = {'procesadas': 0, 'pendientes': 0, 'borradas': 0, 'total': 0}
@@ -477,7 +716,6 @@ def estadisticas_trimestrales():
         estadisticas[trim]['borradas'] += 1
         estadisticas[trim]['total'] += 1
 
-    # Transformar a lista de diccionarios para compatibilidad directa con estadisticas.html
     estadisticas_lista = [
         {
             'trimestre': trim,
@@ -491,40 +729,38 @@ def estadisticas_trimestrales():
 
     return render_template('estadisticas.html', estadisticas=estadisticas_lista)
 
-# --- SINCRONIZAR DESDE GOOGLE SHEETS (MÚLTIPLES PESTAÑAS) ---
 @solicitudes_bp.route('/solicitudes/sincronizar', methods=['POST', 'GET'])
 def sincronizar_todas():
     if 'user' not in session:
         return redirect(url_for('login'))
     
-    SHEET_URLS = [
-        "https://docs.google.com/spreadsheets/d/1cVtzyJ2Y7X9N1fZ9rGZgLxPazXjnuaGg7eIZFVwgX7k/export?format=csv&gid=1341303465",
-        "https://docs.google.com/spreadsheets/d/1cVtzyJ2Y7X9N1fZ9rGZgLxPazXjnuaGg7eIZFVwgX7k/export?format=csv&gid=872085590",
-        "https://docs.google.com/spreadsheets/d/1cVtzyJ2Y7X9N1fZ9rGZgLxPazXjnuaGg7eIZFVwgX7k/export?format=csv&gid=2014289934",
-        "https://docs.google.com/spreadsheets/d/1cVtzyJ2Y7X9N1fZ9rGZgLxPazXjnuaGg7eIZFVwgX7k/export?format=csv&gid=937866469"
+    SPREADSHEET_ID = "1cVtzyJ2Y7X9N1fZ9rGZgLxPazXjnuaGg7eIZFVwgX7k"
+    SHEET_CSV_URLS = [
+        (f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=1341303465", "Título de Cementerio"),
+        (f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=872085590", "Solicitud de OMPU"),
+        (f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=2014289934", "Actas de Matrimonio, Nacimiento y Divorcio"),
+        (f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=937866469", "Terrenos Ejidos")
     ]
     
     try:
         conn = get_db()
         cursor = conn.cursor()
         
-        cursor.execute('''CREATE TABLE IF NOT EXISTS op_procesados (op TEXT PRIMARY KEY)''')
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS registros_excluidos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, cedula TEXT, marca_temporal TEXT, tipo_documento TEXT
-            )
-        ''')
-        
+        for col, col_tipo in [("anio_expediente_titulo", "TEXT"), ("url_adjunto_copia", "TEXT"), ("datos_expediente", "TEXT"), ("contrayente_masculino", "TEXT"), ("contrayente_femenino", "TEXT"), ("fecha_acta", "TEXT")]:
+            try:
+                cursor.execute(f"ALTER TABLE solicitudes_tramites ADD COLUMN {col} {col_tipo};")
+            except Exception:
+                pass
+
         nuevos_registros_total = 0
 
-        for SHEET_CSV_URL in SHEET_URLS:
-            req = urllib.request.Request(SHEET_CSV_URL, headers={'User-Agent': 'Mozilla/5.0'})
+        for url, nombre_pestana in SHEET_CSV_URLS:
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req) as response:
                 csv_data = response.read().decode('utf-8')
                 
             io_string = io.StringIO(csv_data)
             reader = csv.reader(io_string)
-            
             header = next(reader, None)
             if not header:
                 continue
@@ -533,73 +769,86 @@ def sincronizar_todas():
                 if not row or len(row) < 5:
                     continue
                 
-                marca_temporal = row[0] if len(row) > 0 else ""
-                correo = row[1] if len(row) > 1 and row[1] else (row[6] if len(row) > 6 else "")
-
-                nombre = row[2] if len(row) > 2 else ""
-                apellido = row[3] if len(row) > 3 else ""
-                cedula = row[4] if len(row) > 4 else ""
-                nacionalidad = row[5] if len(row) > 5 else "V"
-                
                 total_cols = len(row)
-                
-                if total_cols >= 14:
-                    parentesco = row[7] if len(row) > 7 else "Titular"
-                    tipo_documento = row[8] if len(row) > 8 else "Acta Registral"
-                    numero_copias = row[10] if len(row) > 10 else "1"
-                    cont_m = row[11] if len(row) > 11 else ""
-                    cont_f = row[12] if len(row) > 12 else ""
-                    nombre_titular = f"Contrayentes: {cont_m} / {cont_f}".strip(" /")
-                elif total_cols == 13:
-                    tipo_documento = row[7] if len(row) > 7 else "Título de Cementerio"
-                    parentesco = row[8] if len(row) > 8 else "Titular"
-                    numero_copias = row[10] if len(row) > 10 else "1"
-                    nombre_titular = row[11] if len(row) > 11 else ""
-                elif total_cols == 12:
-                    campo_8 = row[8].lower() if len(row) > 8 else ""
-                    if "terreno" in campo_8 or "ejido" in campo_8:
-                        parentesco = row[7] if len(row) > 7 else "Titular"
-                        tipo_documento = row[8] if len(row) > 8 else "Terrenos Ejidos"
-                        nombre_titular = row[10] if len(row) > 10 else ""
-                        numero_copias = row[11] if len(row) > 11 else "1"
-                    else:
-                        tipo_documento = row[7] if len(row) > 7 else "OMPU"
-                        parentesco = row[8] if len(row) > 8 else "Titular"
-                        numero_copias = row[10] if len(row) > 10 else "1"
-                        nombre_titular = row[11] if len(row) > 11 else ""
-                else:
-                    parentesco = "Titular"
-                    tipo_documento = "Documento Certificado"
-                    numero_copias = "1"
-                    nombre_titular = ""
+                marca_temporal = row[0] if total_cols > 0 else ""
+                correo_google = row[1] if total_cols > 1 else ""
+                nombre_solicitante = row[2] if total_cols > 2 else ""
+                apellido_solicitante = row[3] if total_cols > 3 else ""
+                cedula_solicitante = row[4] if total_cols > 4 else ""
+                nacionalidad = row[5] if total_cols > 5 else "V"
+                correo_solicitante = row[6] if total_cols > 6 else correo_google
+
+                parentesco, tipo_documento, numero_copias, anio_expediente_titulo, fecha_acta, nombre_titular, contrayente_masculino, contrayente_femenino, datos_expediente, url_adjunto_copia = "", nombre_pestana, "", "", "", "", "", "", "", ""
+
+                if "Matrimonio" in nombre_pestana:
+                    parentesco = row[7] if total_cols > 7 else ""
+                    tipo_documento = row[8] if total_cols > 8 else nombre_pestana
+                    fecha_acta = row[9] if total_cols > 9 else ""
+                    numero_copias = row[10] if total_cols > 10 else ""
+                    contrayente_masculino = row[11] if total_cols > 11 else ""
+                    contrayente_femenino = row[12] if total_cols > 12 else ""
+                    nombre_titular = f"Contrayentes: {contrayente_masculino} / {contrayente_femenino}".strip(" /")
+                    if total_cols > 13: url_adjunto_copia = row[13]
+
+                elif "Cementerio" in nombre_pestana:
+                    tipo_documento = row[7] if total_cols > 7 else nombre_pestana
+                    parentesco = row[8] if total_cols > 8 else ""
+                    anio_expediente_titulo = row[9] if total_cols > 9 else ""
+                    numero_copias = row[10] if total_cols > 10 else ""
+                    nombre_titular = row[11] if total_cols > 11 else ""
+                    if total_cols > 12: url_adjunto_copia = row[12]
+
+                elif "OMPU" in nombre_pestana:
+                    tipo_documento = row[7] if total_cols > 7 else nombre_pestana
+                    parentesco = row[8] if total_cols > 8 else ""
+                    anio_expediente_titulo = row[9] if total_cols > 9 else ""
+                    numero_copias = row[10] if total_cols > 10 else ""
+                    datos_expediente = row[11] if total_cols > 11 else ""
+                    if total_cols > 12: url_adjunto_copia = row[12]
+
+                elif "Ejidos" in nombre_pestana:
+                    parentesco = row[7] if total_cols > 7 else ""
+                    tipo_documento = row[8] if total_cols > 8 else nombre_pestana
+                    anio_expediente_titulo = row[9] if total_cols > 9 else ""
+                    nombre_titular = row[10] if total_cols > 10 else ""
+                    numero_copias = row[11] if total_cols > 11 else ""
+                    if total_cols > 12: url_adjunto_copia = row[12]
 
                 cursor.execute("""
                     SELECT 1 FROM registros_excluidos 
                     WHERE cedula = ? AND marca_temporal = ? AND tipo_documento = ?
-                """, (cedula, marca_temporal, tipo_documento))
+                """, (cedula_solicitante, marca_temporal, tipo_documento))
                 if cursor.fetchone():
                     continue
 
                 cursor.execute("""
                     SELECT id FROM solicitudes_tramites 
                     WHERE cedula_solicitante = ? AND marca_temporal = ? AND tipo_documento = ?
-                """, (cedula, marca_temporal, tipo_documento))
+                """, (cedula_solicitante, marca_temporal, tipo_documento))
                 
                 if not cursor.fetchone():
                     cursor.execute("""
                         INSERT INTO solicitudes_tramites (
-                            marca_temporal, correo_solicitante, apellido_solicitante, nombre_solicitante,
+                            marca_temporal, correo_google, correo_solicitante, apellido_solicitante, nombre_solicitante,
                             nacionalidad, cedula_solicitante, tipo_documento, parentesco,
-                            numero_copias, nombre_titular, estado
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE')
-                    """, (marca_temporal, correo, apellido, nombre, nacionalidad, cedula, tipo_documento, parentesco, numero_copias, nombre_titular))
+                            numero_copias, anio_expediente_titulo, fecha_acta, nombre_titular,
+                            contrayente_masculino, contrayente_femenino, datos_expediente, 
+                            url_adjunto_copia, estado, sincronizado
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', 1)
+                    """, (
+                        marca_temporal, correo_google, correo_solicitante, apellido_solicitante, nombre_solicitante,
+                        nacionalidad, cedula_solicitante, tipo_documento, parentesco,
+                        numero_copias, anio_expediente_titulo, fecha_acta, nombre_titular,
+                        contrayente_masculino, contrayente_femenino, datos_expediente, 
+                        url_adjunto_copia
+                    ))
                     nuevos_registros_total += 1
 
         conn.commit()
         conn.close()
 
         if nuevos_registros_total > 0:
-            flash(f'✅ Sincronización exitosa. Se importaron {nuevos_registros_total} solicitudes nuevas.', 'success')
+            flash(f'✅ Sincronización exitosa. Se importaron {nuevos_registros_total} solicitudes con sus años y adjuntos.', 'success')
         else:
             flash('ℹ️ Sincronización completada. No hay solicitudes nuevas por importar.', 'info')
 
