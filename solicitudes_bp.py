@@ -375,9 +375,9 @@ def procesar_y_guardar(id):
               <div style="border-left: 3px solid #f6ad55; background-color: #fffaf0; padding: 10px; border-radius: 0 6px 6px 0; margin-bottom: 10px; font-size: 11px;">
                 <div style="color: #9c4221; font-weight: bold; margin-bottom: 4px;">📍 PASOS OBLIGATORIOS PARA RETIRAR:</div>
                 <ul style="margin: 0; padding-left: 15px; color: #744210; line-height: 1.3;">
-                  <li style="margin-bottom: 3px;">Asistir a <b>SEDEMAT</b> (Sector Valle Frío, Av. 3F entre calles 81 y 82).</li>
+                  <li style="margin-bottom: 3px;">Asistir a <b>SEDEMAT</b> (Sedes de Atencion y Tramites "Valle Frio , Alcaldia de Maraciabo,Costa Verde,Plaza de Toros,Curva de Molina,Vereda del Lago , CC.Lago.Mall ").</li>
                   <li style="margin-bottom: 3px;">Realizar el pago de aranceles municipales correspondientes.</li>
-                  <li>Presentar el pago del SEDEMAT para la certificación del documento y su posterior retiro (3 días hábiles).</li>
+                  <li>Presentar el pago del SEDEMAT en el 3er piso del Palacio Municipal "Archivo General Municipal"para la certificación del documento y su posterior retiro (3 días hábiles).</li>
                 </ul>
               </div>
 

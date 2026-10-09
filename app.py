@@ -12,7 +12,6 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'catatumbo_digital_secure_secret_key')
 
 # --- IMPORTACIÓN SEGURA DE BLUEPRINTS ---
-# Evita que la app colapse si cambia el nombre del archivo del blueprint
 solicitudes_bp = None
 try:
     from solicitudes_bp import solicitudes_bp
@@ -473,6 +472,35 @@ def eliminar(idx):
     delete_db_doc(idx)
     flash('Registro eliminado exitosamente.', 'success')
     return redirect(url_for('buscar'))
+
+@app.route('/imprimir/<int:id>', methods=['GET', 'POST'])
+def preparar_impresion(id):
+    if 'user' not in session: 
+        return redirect(url_for('login'))
+    
+    conn = get_db_connection()
+    row = conn.execute('SELECT * FROM documentos WHERE id = ?', (id,)).fetchone()
+    conn.close()
+    
+    if not row:
+        flash('El documento no fue encontrado.', 'danger')
+        return redirect(url_for('buscar'))
+        
+    documento = dict(row)
+    try:
+        documento['archivos'] = json.loads(documento['archivos']) if documento['archivos'] else []
+    except Exception:
+        documento['archivos'] = []
+        
+    # Obtener fecha actual estructurada para la preforma de certificación
+    fecha_info = obtener_fecha_sistema()
+    
+    return render_template(
+        'imprimir_certificacion.html', 
+        documento=documento, 
+        fecha_actual=fecha_info['fecha_completa'],
+        funcionario=session.get('nombre', 'Funcionario Autorizado')
+    )
 
 @app.route('/usuarios', methods=['GET'])
 def gestionar_usuarios():

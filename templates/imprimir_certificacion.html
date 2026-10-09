@@ -1,0 +1,321 @@
+Aquí tienes el código completo de la plantilla ajustado. Se eliminó la condición restrictiva para que **Año, Tomo y Folio** aparezcan siempre de forma fija en la preforma de certificación, sin importar el tipo de documento:
+
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Certificación - Expediente N° #{{ documento.id }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* ESTILOS GENERALES DE PANTALLA */
+        body {
+            background-color: #e9ecef;
+            font-family: Arial, sans-serif;
+        }
+
+        /* 1. EN PANTALLA: Ocultar la cara anverso en el panel derecho para EVITAR la duplicación del visor PDF */
+        @media screen {
+            .pagina-anverso {
+                display: none !important;
+            }
+        }
+
+        .hoja-impresion {
+            background-color: #ffffff;
+            width: 100%;
+            max-width: 850px;
+            margin: 0 auto 30px auto;
+            padding: 40px 50px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .pagina-reverso {
+            min-height: 900px;
+            font-family: 'Times New Roman', Times, serif;
+            color: #000;
+        }
+
+        .etiqueta-cara {
+            display: inline-block;
+            background-color: #212529;
+            color: #ffffff;
+            padding: 5px 14px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-family: sans-serif;
+        }
+
+        /* CAMPOS EDITABLES EN LA PREFORMA */
+        .input-inline {
+            border: none;
+            border-bottom: 1px dashed #6c757d;
+            background: transparent;
+            font-family: inherit;
+            font-size: inherit;
+            font-weight: bold;
+            padding: 0 4px;
+            outline: none;
+        }
+        .input-inline:focus {
+            border-bottom: 2px solid #0d6efd;
+            background-color: #f8f9fa;
+        }
+
+        .texto-certificacion {
+            font-size: 1.15rem;
+            line-height: 1.8;
+            text-align: justify;
+        }
+
+        /* 2. REGLAS EXCLUSIVAS DE IMPRESIÓN (DÚPLEX / DOBLE CARA) */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: #ffffff !important;
+                margin: 0;
+                padding: 0;
+            }
+            .container-fluid {
+                padding: 0 !important;
+            }
+            .col-impresion {
+                width: 100% !important;
+                max-width: 100% !important;
+                flex: 0 0 100% !important;
+            }
+            .hoja-impresion {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            
+            /* MOSTRAR ANVERSO EN IMPRESIÓN (PÁGINA 1: DOCUMENTO ORIGINAL) */
+            .pagina-anverso {
+                display: block !important;
+                height: 100vh !important;
+                min-height: 100vh !important;
+                page-break-after: always !important;
+                break-after: page !important;
+                padding: 0 !important;
+            }
+            .visor-pdf-hoja {
+                width: 100% !important;
+                height: 100vh !important;
+                border: none !important;
+            }
+
+            /* REVERSO EN IMPRESIÓN (PÁGINA 2: PREFORMA DE CERTIFICACIÓN) */
+            .pagina-reverso {
+                page-break-before: always !important;
+                break-before: page !important;
+                padding: 1.5cm !important;
+            }
+            
+            .input-inline {
+                border-bottom: none !important;
+            }
+            textarea.form-control {
+                border: none !important;
+                resize: none;
+                padding: 0;
+            }
+            
+            @page {
+                size: letter portrait;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAV BAR (OCULTA AL IMPRIMIR) -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 no-print">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">
+                <i class="fas fa-file-contract me-2"></i>Catatumbo Digital - CMM
+            </a>
+            
+            <div class="d-flex align-items-center gap-3">
+                {% if documento.archivos and documento.archivos|length > 1 %}
+                <div class="d-flex align-items-center gap-2 text-white">
+                    <label for="selectArchivo" class="small fw-bold text-nowrap mb-0">PDF Adjunto:</label>
+                    <select id="selectArchivo" class="form-select form-select-sm" onchange="actualizarVisoresPdf(this.value)">
+                        {% for arc in documento.archivos %}
+                        <option value="{{ url_for('ver_archivo', filename=arc) }}">Adjunto {{ loop.index }}: {{ arc }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+                <a href="{{ url_for('ver_detalle', id=documento.id) }}" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-arrow-left me-1"></i> Volver al Detalle
+                </a>
+                <button onclick="window.print()" class="btn btn-success btn-sm fw-bold">
+                    <i class="fas fa-print me-1"></i> Imprimir a Doble Cara
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4 mb-5">
+        <div class="row g-4">
+            
+            <!-- PANEL IZQUIERDO: UNICO VISOR VISIBLE EN PANTALLA (OCULTO AL IMPRIMIR) -->
+            <div class="col-lg-5 no-print">
+                <div class="card shadow-sm border-secondary sticky-top" style="top: 20px;">
+                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                        <span class="fw-bold"><i class="fas fa-search me-2"></i> Documento Original de Consulta</span>
+                        <span class="badge bg-light text-dark">Expediente #{{ documento.id }}</span>
+                    </div>
+                    <div class="card-body p-2">
+                        {% if documento.archivos %}
+                            <iframe id="pdfConsultaViewer" src="{{ url_for('ver_archivo', filename=documento.archivos[0]) }}" style="width: 100%; height: 820px; border: 1px solid #ccc; border-radius: 4px;"></iframe>
+                        {% else %}
+                            <div class="text-center py-5 text-muted">
+                                <i class="fas fa-folder-open fa-3x mb-3"></i>
+                                <p>Este expediente no posee archivos PDF adjuntos.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL DERECHO: EDICIÓN DE PREFORMA Y SALIDA A IMPRESIÓN DÚPLEX -->
+            <div class="col-lg-7 col-impresion">
+                
+                <!-- PÁGINA 1: ANVERSO (OCULTA EN PANTALLA, ACTIVA EN IMPRESIÓN) -->
+                <div class="hoja-impresion pagina-anverso">
+                    {% if documento.archivos %}
+                        <iframe id="pdfAnversoImpresion" class="visor-pdf-hoja" src="{{ url_for('ver_archivo', filename=documento.archivos[0]) }}"></iframe>
+                    {% endif %}
+                </div>
+
+                <!-- PÁGINA 2: REVERSO (VISIBLE EN PANTALLA PARA EDICIÓN DIRECTA) -->
+                <div class="hoja-impresion pagina-reverso">
+                    <div class="etiqueta-cara no-print">
+                        <i class="fas fa-edit me-1"></i> EDICIÓN DE CERTIFICACIÓN (REVERSO - PÁGINA 2)
+                    </div>
+
+                    <!-- MEMBRETE OFICIAL -->
+                    <div class="text-center mb-4">
+                        <div class="mb-2">
+                            <i class="fas fa-landmark fa-3x text-dark"></i>
+                        </div>
+                        <h6 class="fw-bold mb-1 text-uppercase">República Bolivariana de Venezuela</h6>
+                        <h6 class="fw-bold mb-1 text-uppercase">Estado Zulia - Concejo Municipal de Maracaibo</h6>
+                        <h5 class="fw-bold mb-1 text-uppercase text-decoration-underline">Catatumbo Digital - Archivo General</h5>
+                        <p class="small mb-0 text-muted">Coordinación de Certificación y Registro Documental</p>
+                        
+                        <div class="mt-3 text-end">
+                            <span class="fw-bold">Fecha de Emisión:</span>
+                            <input type="text" class="input-inline text-end" style="width: 280px;" value="{{ fecha_actual }}">
+                        </div>
+                    </div>
+
+                    <hr class="border-2 border-dark my-4">
+
+                    <!-- TÍTULO DE CERTIFICACIÓN -->
+                    <div class="text-center my-4">
+                        <h3 class="fw-bold text-uppercase">CERTIFICACIÓN OFICIAL</h3>
+                    </div>
+
+                    <!-- PREFORMA EDITABLE -->
+                    <div class="texto-certificacion my-4">
+                        <p>
+                            Quien suscribe, 
+                            <input type="text" class="input-inline" style="width: 250px;" value="{{ funcionario }}" placeholder="Nombre del Funcionario">, 
+                            en mi carácter de 
+                            <input type="text" class="input-inline" style="width: 260px;" value="Certificador Oficial de Archivo" placeholder="Cargo del Funcionario">, 
+                            por medio de la presente <strong>CERTIFICO</strong> que la reproducción fotostática que antecede en el anverso de la presente hoja es copia fiel y exacta de su original, el cual reposa en los archivos de esta institución bajo la siguiente identificación:
+                        </p>
+
+                        <!-- CAMPOS DINÁMICOS Y EDITABLES -->
+                        <div class="p-3 my-3 border border-dark rounded bg-light">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <strong>Tipo de Documento:</strong> 
+                                    <input type="text" class="input-inline" style="width: 180px;" value="{{ documento.tipo_documento }}">
+                                </div>
+                                <div class="col-6">
+                                    <strong>N° Expediente:</strong> #{{ documento.id }}
+                                </div>
+
+                                <div class="col-12">
+                                    <strong>Titular / Identificador:</strong> 
+                                    <input type="text" class="input-inline" style="width: 70%;" value="{{ documento.nombre_titular or documento.nombre_masculino or documento.nombre_femenino or documento.numero_acta or documento.numero_gaceta or documento.numero_registro or '' }}">
+                                </div>
+                                <div class="col-6">
+                                    <strong>N° Registro / Norma:</strong> 
+                                    <input type="text" class="input-inline" style="width: 120px;" value="{{ documento.numero_registro or documento.numero_gaceta or documento.numero_acta or 'N/A' }}">
+                                </div>
+                                <div class="col-6">
+                                    <strong>Año:</strong> 
+                                    <input type="text" class="input-inline" style="width: 150px;" value="{{ documento.fecha_documento or documento.fecha_gaceta or documento.anio_documento or 'N/A' }}">
+                                </div>
+
+                                <!-- CAMPOS, TOMO Y FOLIO FIJOS -->
+                                <div class="col-4">
+                                    <strong>Tomo:</strong> 
+                                    <input type="text" class="input-inline" style="width: 80px;" value="{{ documento.tomo or 'N/A' }}">
+                                </div>
+                                <div class="col-4">
+                                    <strong>Folio:</strong> 
+                                    <input type="text" class="input-inline" style="width: 80px;" value="{{ documento.folio or 'N/A' }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- OBSERVACIONES EDITABLES -->
+                        <p class="mt-3 mb-1">
+                            <strong>Observaciones Adicionales:</strong>
+                        </p>
+                        <textarea class="form-control border-secondary mb-3" rows="3" style="font-family: inherit; font-size: inherit;">Se expide la presente certificación a solicitud de parte interesada en la ciudad de Maracaibo, a los fines legales pertinentes.</textarea>
+
+                        <p>
+                            Constancia que se firma y sella a los efectos de expedición oficial del documento digitalizado bajo el expediente N° <strong>#{{ documento.id }}</strong>.
+                        </p>
+                    </div>
+
+                    <!-- SECCIÓN DE FIRMA -->
+                    <div class="row text-center mt-5 pt-5" style="page-break-inside: avoid;">
+                        <div class="col-6 offset-3">
+                            <div class="border-top border-dark pt-2">
+                                <p class="fw-bold mb-0 text-uppercase">{{ funcionario }}</p>
+                                <p class="small mb-0">Funcionario Certificador Autorizado</p>
+                                <p class="small text-muted">Sello Oficial Institucional</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        function actualizarVisoresPdf(url) {
+            const pdfConsulta = document.getElementById('pdfConsultaViewer');
+            const pdfAnverso = document.getElementById('pdfAnversoImpresion');
+            if (pdfConsulta) pdfConsulta.src = url;
+            if (pdfAnverso) pdfAnverso.src = url;
+        }
+    </script>
+</body>
+</html>
+
+```

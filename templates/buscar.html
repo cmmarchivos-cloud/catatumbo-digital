@@ -67,6 +67,7 @@
                                 </td>
                                 <td class="text-center">
                                     <a href="{{ url_for('ver_detalle', id=doc.index_id) }}" class="btn btn-sm btn-outline-info" title="Ver detalle"><i class="fas fa-eye"></i></a>
+                                    <a href="{{ url_for('preparar_impresion', id=doc.index_id) }}" class="btn btn-sm btn-outline-secondary" title="Imprimir / Certificar"><i class="fas fa-print"></i></a>
                                     {% if session['rol'] in ['master', 'supervisor'] %}
                                     <a href="{{ url_for('editar', idx=doc.index_id) }}" class="btn btn-sm btn-outline-primary" title="Editar"><i class="bi bi-pencil"></i></a>
                                     {% endif %}
