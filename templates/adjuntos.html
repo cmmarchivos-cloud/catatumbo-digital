@@ -1,6 +1,8 @@
-<!DOCTYPE html>
+       <!DOCTYPE html>
 <html lang="es">
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <meta charset="UTF-8">
     <title>Gestión y Escaneo de Adjuntos - Archivo General Municipal de Maracaibo</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -12,7 +14,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
     <!-- jsPDF (Conversión automática a PDF) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/jspdf.umd.min.js"></script>
 
     <style>
         #videoCamara {
@@ -27,33 +29,9 @@
         }
     </style>
 </head>
-<body class="bg-light d-flex flex-column vh-100">
+<body class="bg-light d-flex flex-column min-vh-100">
 
-    <!-- Navbar Superior -->
-    <nav class="navbar navbar-dark navbar-expand-lg shadow-sm py-3" style="background-color: #0f172a !important;">
-        <div class="container">
-            <a class="navbar-brand d-flex align-items-center fw-bold" href="/">
-                <img src="{{ url_for('static', filename='img/logo.png') }}" id="navLogo" alt="Logo" style="height: 38px;" class="me-2 bg-white rounded p-1">
-                Archivo General Municipal de Maracaibo
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <div class="navbar-nav ms-auto align-items-lg-center">
-                    <a class="nav-link px-3 fw-semibold" href="/"><i class="bi bi-house-door me-1"></i> Inicio</a>
-                    <a class="nav-link px-3 fw-semibold" href="/buscar"><i class="bi bi-search me-1"></i> Buscar</a>
-                    <a class="nav-link px-3 fw-bold text-warning" href="/solicitudes"><i class="bi bi-inbox-fill me-1"></i> Solicitudes</a>
-                    <a class="nav-link px-3 active fw-semibold text-info" href="{{ url_for('adjuntos_bp.vista_adjuntos') }}"><i class="fas fa-folder-open me-1"></i> Adjuntos / Escáner</a>
-                    <span class="text-light ms-lg-3 my-2 my-lg-0 small bg-secondary px-3 py-1 rounded-pill">
-                        <i class="bi bi-person-badge me-1"></i> {{ session.nombre or session.user }} 
-                        <span class="badge bg-dark text-warning ms-1">{{ session.rol|upper if session.rol else 'OPERADOR' }}</span>
-                    </span>
-                    <a class="btn btn-outline-light btn-sm ms-lg-3" href="/logout"><i class="bi bi-power"></i> Salir</a>
-                </div>
-            </div>
-        </div>
-    </nav>
+    {% include 'navbar.html' %}
 
     <!-- Contenido Principal -->
     <div class="container my-4 flex-grow-1">
@@ -94,13 +72,11 @@
                             <tr>
                                 <th>ID / Datos Acta</th>
                                 <th>Ciudadano / Titular</th>
-                                <th>Cédula</th>
                                 <th>Detalles (T/F/Año)</th>
-                                <th>Funcionario Responsable</th>
                                 <th class="text-center">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody>
+                                                <tbody>
                             {% if adjuntos %}
                                 {% for row in adjuntos %}
                                 <tr>
@@ -109,21 +85,19 @@
                                         <span class="badge bg-secondary">{{ row.tipo_documento }}</span><br>
                                         <small class="text-muted">Acta N°: <strong>{{ row.num_acta or 'N/D' }}</strong></small>
                                     </td>
-                                    <td>{{ row.nombre_solicitante }} {{ row.apellido_solicitante }}</td>
-                                    <td>{{ row.nacionalidad }}-{{ row.cedula_solicitante }}</td>
+                                    <td>{{ row.nombre_titular or row.nombre_masculino or row.nombre_femenino or 'Sin especificar' }}</td>
                                     <td>
                                         <small class="d-block">Tomo: <strong>{{ row.tomo or '-' }}</strong></small>
                                         <small class="d-block">Folio: <strong>{{ row.folio or '-' }}</strong></small>
                                         <small class="d-block">Año: <strong>{{ row.anio or '-' }}</strong></small>
                                     </td>
-                                    <td><span class="fw-semibold text-dark">{{ row.responsable or 'N/D' }}</span></td>
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm" role="group">
-                                            {% if row.url_adjunto_copia %}
-                                                <a href="{{ row.url_adjunto_copia }}" target="_blank" class="btn btn-outline-info" title="Ver documento">
-                                                    <i class="fas fa-eye"></i>
+                                            {% if row.url_archivo %}
+                                                <a href="{{ row.url_archivo }}" target="_blank" class="btn btn-outline-danger fw-semibold" title="Ver documento PDF">
+                                                    <i class="fas fa-file-pdf text-danger me-1"></i> Ver
                                                 </a>
-                                                <a href="{{ row.url_adjunto_copia }}" download class="btn btn-outline-primary" title="Descargar archivo">
+                                                <a href="{{ url_for('descargar_archivo', filename=row.primer_archivo) if row.primer_archivo else row.url_archivo }}" download class="btn btn-outline-primary" title="Descargar archivo">
                                                     <i class="fas fa-download"></i>
                                                 </a>
                                             {% else %}
@@ -131,23 +105,6 @@
                                                     <i class="fas fa-eye-slash"></i>
                                                 </button>
                                             {% endif %}
-
-                                            <button type="button" class="btn btn-outline-warning" title="Editar registro" 
-                                                data-id="{{ row.id }}"
-                                                data-nombre="{{ row.nombre_solicitante }}"
-                                                data-apellido="{{ row.apellido_solicitante }}"
-                                                data-nacionalidad="{{ row.nacionalidad }}"
-                                                data-cedula="{{ row.cedula_solicitante }}"
-                                                data-responsable="{{ row.responsable }}"
-                                                data-tipo="{{ row.tipo_documento }}"
-                                                data-acta="{{ row.num_acta or '' }}"
-                                                data-anio="{{ row.anio or '' }}"
-                                                data-tomo="{{ row.tomo or '' }}"
-                                                data-folio="{{ row.folio or '' }}"
-                                                onclick="abrirModalEditar(this)">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-
                                             <a href="{{ url_for('adjuntos_bp.eliminar_adjunto', id=row.id) }}" class="btn btn-outline-danger" title="Eliminar registro" onclick="return confirm('¿Está seguro de eliminar este registro y su archivo adjunto?');">
                                                 <i class="fas fa-trash-alt"></i>
                                             </a>
@@ -157,7 +114,7 @@
                                 {% endfor %}
                             {% else %}
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted py-4">No hay registros con archivos adjuntos disponibles en el sistema.</td>
+                                    <td colspan="4" class="text-center text-muted py-4">No hay registros con archivos adjuntos disponibles en el sistema.</td>
                                 </tr>
                             {% endif %}
                         </tbody>
@@ -167,91 +124,74 @@
         </div>
     </div>
 
-    <!-- Modal Principal para Registrar Datos y Escanear/Adjuntar -->
+    <!-- Modal Principal para Registrar Datos y Escanear/Adjuntar con el Formulario Unificado -->
     <div class="modal fade" id="modalRegistroDocumento" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
                 <form id="formRegistroDocumento" action="{{ url_for('adjuntos_bp.guardar_adjunto') }}" method="POST" enctype="multipart/form-data">
                     <div class="modal-header bg-dark text-white" style="background-color: #0f172a !important;">
-                        <h5 class="modal-title"><i class="fas fa-file-alt me-1"></i> Registro de Documento y Escaneo</h5>
+                        <h5 class="modal-title"><i class="fas fa-file-alt me-1"></i> Registro de Expediente y Escaneo</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body bg-light">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small">Nombre del Titular:</label>
-                                <input type="text" class="form-control form-control-sm" name="nombre_solicitante" required placeholder="Ej. Juan Carlos">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small">Apellido del Titular:</label>
-                                <input type="text" class="form-control form-control-sm" name="apellido_solicitante" required placeholder="Ej. Pérez">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label fw-bold small">Nacionalidad:</label>
-                                <select class="form-select form-select-sm" name="nacionalidad">
-                                    <option value="V">V</option>
-                                    <option value="E">E</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold small">Cédula:</label>
-                                <input type="text" class="form-control form-control-sm" name="cedula_solicitante" required placeholder="Número de cédula">
-                            </div>
-                            <div class="col-md-5">
-                                <label class="form-label fw-bold small">Funcionario Responsable:</label>
-                                <input type="text" class="form-control form-control-sm" name="responsable" required placeholder="Nombre y apellido del operador">
-                            </div>
-
-                            <hr class="my-2">
-
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold small">Tipo de Documento:</label>
-                                <select class="form-select form-select-sm" name="tipo_documento" required>
-                                    <option value="Acta de Matrimonio">Acta de Matrimonio</option>
-                                    <option value="Acta de Nacimiento">Acta de Nacimiento</option>
-                                    <option value="Sentencia de Divorcio">Sentencia de Divorcio</option>
-                                    <option value="Gaceta Oficial">Gaceta Oficial</option>
-                                    <option value="Expediente OMPU">Expediente OMPU</option>
-                                    <option value="Acta de Sesiones">Acta de Sesiones</option>
-                                    <option value="Terreno Ejido">Terreno Ejido</option>
-                                    <option value="Expediente Laboral">Expediente Laboral</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold small">Número de Acta:</label>
-                                <input type="text" class="form-control form-control-sm" name="num_acta" placeholder="Ej. 045-2026">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold small">Año:</label>
-                                <input type="number" class="form-control form-control-sm" name="anio" value="2026">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small">Tomo:</label>
-                                <input type="text" class="form-control form-control-sm" name="tomo" placeholder="Número o identificador de tomo">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small">Folio:</label>
-                                <input type="text" class="form-control form-control-sm" name="folio" placeholder="Número de folio">
-                            </div>
-
-                            <hr class="my-2">
-
-                            <div class="col-12">
-                                <label class="form-label fw-bold text-primary"><i class="fas fa-camera me-1"></i> Selección de Escáner, Impresora o Cámara:</label>
-                                <div class="d-flex flex-wrap gap-2 p-3 bg-white rounded border">
-                                    <button type="button" class="btn btn-primary btn-sm fw-semibold" onclick="abrirSelectorCamaras()">
-                                        <i class="fas fa-video me-1"></i> Usar Cámara (PC / Teléfono)
-                                    </button>
-                                    <label for="inputArchivoExterno" class="btn btn-outline-dark btn-sm fw-semibold mb-0" style="cursor: pointer;">
-                                        <i class="fas fa-print me-1"></i> Seleccionar de Escáner / Impresora / PC
-                                    </label>
-                                    <input type="file" id="inputArchivoExterno" accept="image/*,application/pdf" style="display: none;" onchange="procesarArchivoExterno(event)">
-                                </div>
-                                <input type="file" id="inputArchivoReal" name="url_adjunto_copia" style="display: none;" required>
-                                <div id="nombreArchivoSeleccionado" class="form-text text-success fw-bold mt-1"></div>
-                            </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-secondary">Tipo de Documento / Expediente <span class="text-danger">*</span></label>
+                            <select name="tipo_documento" id="tipo_documento" class="form-select form-select-sm shadow-sm" required onchange="actualizarFormulario()">
+                                <option value="" selected disabled>-- Seleccione el tipo de documento --</option>
+                                <option value="Acta de nacimiento">Acta de nacimiento</option>
+                                <option value="Acta de matrimonio">Acta de matrimonio</option>
+                                <option value="Sentencia de divorcio">Sentencia de divorcio</option>
+                                <option value="Título de cementerio">Título de cementerio</option>
+                                <option value="Expediente de venta terrenos ejidos">Expediente de venta terrenos ejidos</option>
+                                <option value="Actas de sesiones">Actas de sesiones</option>
+                                <option value="Gaceta oficial">Gaceta oficial</option>
+                                <option value="Expedientes de construcción de urbanismo de Maracaibo OMPU">Expedientes de construcción de urbanismo de Maracaibo OMPU</option>
+                                <option value="Expedientes laborales">Expedientes laborales</option>
+                            </select>
                         </div>
-                    </div>
+
+                        <!-- Campos dinámicos inyectados idénticos al módulo de subida -->
+                        <div id="camposDinamicos"></div>
+
+                        <hr class="my-3">
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold text-dark small mb-2"><i class="bi bi-paperclip text-primary me-1"></i> Dos formas de agregar el archivo:</label>
+                            
+                            <div class="row g-2">
+                                <!-- FORMA 1: CARGA MANUAL -->
+                                <div class="col-md-6">
+                                    <div class="p-3 bg-white rounded border h-100 shadow-sm">
+                                        <div class="fw-bold text-secondary small mb-1"><i class="bi bi-folder2-open text-primary me-1"></i> 1. Carga Manual</div>
+                                        <div class="text-muted small mb-2">Seleccione un archivo PDF o imagen desde su equipo:</div>
+                                        <label for="inputArchivoExterno" class="btn btn-outline-primary btn-sm w-100 fw-semibold mb-0" style="cursor: pointer;">
+                                            <i class="bi bi-upload me-1"></i> Subir Archivo Manual (PDF / Foto)
+                                        </label>
+                                        <input type="file" id="inputArchivoExterno" accept="image/*,application/pdf" style="display: none;" onchange="procesarArchivoExterno(event)">
+                                    </div>
+                                </div>
+
+                                <!-- FORMA 2: DESDE DISPOSITIVOS / CÁMARA / TELÉFONO -->
+                                <div class="col-md-6">
+                                    <div class="p-3 bg-white rounded border border-success h-100 shadow-sm">
+                                        <div class="fw-bold text-success small mb-1"><i class="bi bi-camera-fill me-1"></i> 2. Desde Dispositivos / Cámara</div>
+                                        <div class="text-muted small mb-2">Capture en vivo usando la cámara o teléfono:</div>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-outline-success btn-sm flex-fill fw-semibold" onclick="abrirSelectorCamaras()">
+                                                <i class="bi bi-webcam-fill me-1"></i> Cámara PC / Web
+                                            </button>
+                                            <label for="inputCamaraMovil" class="btn btn-success btn-sm flex-fill fw-semibold mb-0" style="cursor: pointer;">
+                                                <i class="bi bi-phone-fill me-1"></i> Teléfono
+                                            </label>
+                                        </div>
+                                        <input type="file" id="inputCamaraMovil" accept="image/*" capture="environment" style="display: none;" onchange="procesarArchivoExterno(event)">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <input type="file" id="inputArchivoReal" name="url_adjunto_copia" style="display: none;" required>
+                            <div id="nombreArchivoSeleccionado" class="p-2 mt-2 rounded bg-light border text-success fw-bold small text-center" style="display: none;"></div>
+                        </div></div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-success btn-sm fw-bold px-4">
@@ -263,114 +203,33 @@
         </div>
     </div>
 
-    <!-- Modal para Editar Registros -->
-    <div class="modal fade" id="modalEditarDocumento" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <form id="formEditarDocumento" method="POST" enctype="multipart/form-data">
-                    <div class="modal-header bg-dark text-white" style="background-color: #0f172a !important;">
-                        <h5 class="modal-title"><i class="fas fa-edit me-1"></i> Editar Registro <span id="editIdLabel" class="text-warning"></span></h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body bg-light">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small">Nombre del Titular:</label>
-                                <input type="text" class="form-control form-control-sm" id="edit_nombre_solicitante" name="nombre_solicitante" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small">Apellido del Titular:</label>
-                                <input type="text" class="form-control form-control-sm" id="edit_apellido_solicitante" name="apellido_solicitante" required>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label fw-bold small">Nacionalidad:</label>
-                                <select class="form-select form-select-sm" id="edit_nacionalidad" name="nacionalidad">
-                                    <option value="V">V</option>
-                                    <option value="E">E</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold small">Cédula:</label>
-                                <input type="text" class="form-control form-control-sm" id="edit_cedula_solicitante" name="cedula_solicitante" required>
-                            </div>
-                            <div class="col-md-5">
-                                <label class="form-label fw-bold small">Funcionario Responsable:</label>
-                                <input type="text" class="form-control form-control-sm" id="edit_responsable" name="responsable" required>
-                            </div>
-
-                            <hr class="my-2">
-
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold small">Tipo de Documento:</label>
-                                <select class="form-select form-select-sm" id="edit_tipo_documento" name="tipo_documento" required>
-                                    <option value="Acta de Matrimonio">Acta de Matrimonio</option>
-                                    <option value="Acta de Nacimiento">Acta de Nacimiento</option>
-                                    <option value="Sentencia de Divorcio">Sentencia de Divorcio</option>
-                                    <option value="Gaceta Oficial">Gaceta Oficial</option>
-                                    <option value="Expediente OMPU">Expediente OMPU</option>
-                                    <option value="Acta de Sesiones">Acta de Sesiones</option>
-                                    <option value="Terreno Ejido">Terreno Ejido</option>
-                                    <option value="Expediente Laboral">Expediente Laboral</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold small">Número de Acta:</label>
-                                <input type="text" class="form-control form-control-sm" id="edit_num_acta" name="num_acta">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold small">Año:</label>
-                                <input type="number" class="form-control form-control-sm" id="edit_anio" name="anio">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small">Tomo:</label>
-                                <input type="text" class="form-control form-control-sm" id="edit_tomo" name="tomo">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small">Folio:</label>
-                                <input type="text" class="form-control form-control-sm" id="edit_folio" name="folio">
-                            </div>
-
-                            <hr class="my-2">
-
-                            <div class="col-12">
-                                <label class="form-label fw-bold text-primary"><i class="fas fa-file-upload me-1"></i> Reemplazar Archivo Adjunto (Opcional):</label>
-                                <input type="file" class="form-control form-control-sm" name="url_adjunto_copia" accept="image/*,application/pdf">
-                                <div class="form-text text-muted">Si no selecciona ningún archivo, se mantendrá el documento actual cargado.</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-warning btn-sm fw-bold px-4 text-dark">
-                            <i class="fas fa-save me-1"></i> Actualizar Registro
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
     <!-- Modal para Selección de Cámaras -->
     <div class="modal fade" id="modalCamara" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-md modal-dialog-centered">
-            <div class="modal-content">
+            <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header bg-dark text-white">
-                    <h5 class="modal-title"><i class="fas fa-camera me-1"></i> Seleccionar Cámara y Capturar</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title"><i class="fas fa-camera me-2 text-info"></i> Seleccionar Cámara y Capturar</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="detenerStreamCamara()"></button>
                 </div>
-                <div class="modal-body text-center bg-light">
-                    <div class="mb-3">
-                        <label for="selectDispositivoCamara" class="form-label small fw-bold text-dark">Elija la cámara o dispositivo:</label>
-                        <select id="selectDispositivoCamara" class="form-select form-select-sm" onchange="cambiarCamaraSeleccionada()"></select>
+                <div class="modal-body text-center bg-light p-3">
+                    <div id="alertaCamaraError" class="alert alert-warning py-2 small d-none text-start mb-2" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i> <span id="msgCamaraError">No se pudo acceder al stream directo en este dispositivo.</span>
                     </div>
-                    <div class="position-relative bg-black rounded overflow-hidden mb-2">
-                        <video id="videoCamara" autoplay playsinline></video>
+                    <div class="d-flex align-items-center gap-2 mb-2" id="contenedorSelectCamara">
+                        <label for="selectDispositivoCamara" class="form-label small fw-bold text-dark mb-0 text-nowrap">Cámara:</label>
+                        <select id="selectDispositivoCamara" class="form-select form-select-sm" onchange="cambiarCamaraSeleccionada()"></select>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="alternarCamaraTraseraFrontal()" title="Alternar">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                    <div class="position-relative bg-black rounded-3 overflow-hidden mb-2 shadow-inner" style="min-height: 240px; display: flex; align-items: center; justify-content: center;">
+                        <video id="videoCamara" autoplay playsinline muted style="width: 100%; max-height: 380px; object-fit: contain;"></video>
                     </div>
                     <canvas id="canvasCaptura" style="display:none;"></canvas>
                 </div>
-                <div class="modal-footer justify-content-between">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-success btn-sm fw-bold px-4" onclick="capturarFotoCamara()">
+                <div class="modal-footer justify-content-between bg-white">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" onclick="detenerStreamCamara()">Cancelar</button>
+                    <button type="button" class="btn btn-success btn-sm fw-bold px-4 shadow-sm" onclick="capturarFotoCamara()">
                         <i class="fas fa-camera-retro me-1"></i> Capturar Imagen
                     </button>
                 </div>
@@ -380,45 +239,83 @@
 
     <!-- Modal de Previsualización, Recorte, Filtros y Conversión a PDF -->
     <div class="modal fade" id="modalEscaneoFiltro" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-dark text-white" style="background-color: #0f172a !important;">
-                    <h5 class="modal-title"><i class="fas fa-crop-alt me-2"></i>Edición, Recorte y Mejora de Imagen</h5>
+        <div class="modal-dialog modal-fullscreen-lg-down modal-xl modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+                <div class="modal-header text-white py-2 py-md-3 px-3 px-md-4" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-magic fs-4 text-warning me-2"></i>
+                        <div>
+                            <h5 class="modal-title fw-bold mb-0">Escáner y Editor en Tiempo Real</h5>
+                            <small class="text-info" style="font-size: 0.78rem;">Visualiza los filtros y la nitidez de las letras al instante</small>
+                        </div>
+                    </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body bg-light text-center">
-                    
-                    <!-- Área Interactiva de Recorte -->
-                    <div class="img-container mb-3" style="max-height: 420px; overflow: hidden; background: #111; border-radius: 8px;">
-                        <img id="imgPreviewFiltro" src="" style="max-width: 100%; display: block;">
-                    </div>
-
-                    <!-- Controles: Rotación y Filtros -->
-                    <div class="d-flex justify-content-center flex-wrap gap-2 mb-2">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="rotarImagen(-90)">
-                            <i class="fas fa-undo me-1"></i> Rotar -90°
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="rotarImagen(90)">
-                            <i class="fas fa-redo me-1"></i> Rotar +90°
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="seleccionarFiltro('normal')">
-                            <i class="fas fa-image me-1"></i> Normal
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-dark" onclick="seleccionarFiltro('grises')">
-                            <i class="fas fa-adjust me-1"></i> Escala de Grises
-                        </button>
-                        <button type="button" class="btn btn-sm btn-dark fw-bold text-warning" onclick="seleccionarFiltro('camscanner')">
-                            <i class="fas fa-file-contract me-1"></i> Realce B/N (Escáner)
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-bold" onclick="seleccionarFiltro('contraste')">
-                            <i class="fas fa-sun me-1"></i> Alto Contraste
-                        </button>
+                <div class="modal-body bg-light p-2 p-md-3">
+                    <div class="row g-2 g-md-3">
+                        <div class="col-lg-7">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-header bg-white py-2 px-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                    <ul class="nav nav-pills nav-fill flex-nowrap" id="pills-scanner-tab" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active py-1 px-3 fw-bold small" id="tab-recorte-btn" data-bs-toggle="pill" type="button" onclick="activarModoRecorte()">
+                                                <i class="fas fa-crop-alt me-1"></i> 1. Recortar
+                                            </button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link py-1 px-3 fw-bold small text-primary" id="tab-resultado-btn" data-bs-toggle="pill" type="button" onclick="activarModoResultado()">
+                                                <i class="fas fa-eye me-1"></i> 2. Vista en Vivo (<span id="tagFiltroActivo">CamScanner</span>)
+                                            </button>
+                                        </li>
+                                    </ul>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-secondary" onclick="rotarImagen(-90)" title="Girar -90°"><i class="fas fa-undo"></i></button>
+                                        <button type="button" class="btn btn-outline-secondary" onclick="rotarImagen(90)" title="Girar +90°"><i class="fas fa-redo"></i></button>
+                                        <button type="button" class="btn btn-outline-secondary" onclick="restablecerRecorte()" title="Restablecer"><i class="fas fa-expand"></i></button>
+                                    </div>
+                                </div>
+                                <div class="card-body p-2 bg-dark rounded-bottom text-center position-relative overflow-hidden" style="min-height: 380px; max-height: 520px; display: flex; align-items: center; justify-content: center;">
+                                    <div id="contenedorCropperArea" class="w-100 h-100 position-relative" style="max-height: 500px;">
+                                        <img id="imgPreviewFiltro" src="" style="max-width: 100%; max-height: 490px; display: block; margin: 0 auto;">
+                                    </div>
+                                    <div id="contenedorCanvasArea" class="w-100 h-100 d-none position-relative overflow-auto d-flex align-items-center justify-content-center p-1">
+                                        <canvas id="canvasPreviewRealtime" class="shadow rounded border border-light" style="max-width: 100%; max-height: 480px; object-fit: contain; background: white;"></canvas>
+                                    </div>
+                                    <div id="spinnerProcesando" class="position-absolute bg-dark bg-opacity-75 text-white p-2 rounded shadow small d-none" style="top: 15px; right: 15px; z-index: 10;">
+                                        <span class="spinner-border spinner-border-sm text-info me-1" role="status"></span> Procesando...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-5">
+                            <div class="card border-0 shadow-sm h-100 rounded-3">
+                                <div class="card-header bg-white border-bottom fw-bold text-dark py-2">
+                                    <i class="fas fa-sliders-h text-primary me-1"></i> Filtros de Legibilidad
+                                </div>
+                                <div class="card-body p-3 overflow-auto" style="max-height: 520px;">
+                                    <div class="d-grid gap-2 mb-3">
+                                        <button type="button" class="btn btn-sm btn-outline-primary text-start fw-semibold py-2 btn-filtro" id="btnFiltroCamscanner" onclick="cambiarFiltroRealtime('camscanner')">
+                                            <span><i class="fas fa-file-contract text-warning me-2"></i> <strong>Escáner CamScanner</strong></span>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-dark text-start fw-semibold py-2 btn-filtro" id="btnFiltroContraste" onclick="cambiarFiltroRealtime('contraste')">
+                                            <span><i class="fas fa-bolt text-danger me-2"></i> <strong>Texto Nítido</strong></span>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary text-start fw-semibold py-2 btn-filtro" id="btnFiltroGrises" onclick="cambiarFiltroRealtime('grises')">
+                                            <span><i class="fas fa-adjust text-secondary me-2"></i> <strong>Escala de Grises</strong></span>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-info text-start fw-semibold py-2 btn-filtro" id="btnFiltroColor" onclick="cambiarFiltroRealtime('color')">
+                                            <span><i class="fas fa-palette text-info me-2"></i> <strong>Color Documento</strong></span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-white">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Descartar</button>
-                    <button type="button" class="btn btn-success btn-sm fw-bold px-4" onclick="procesarYConvertirAPDF()">
-                        <i class="fas fa-file-pdf me-1"></i> Convertir a PDF y Adjuntar
+                <div class="modal-footer bg-white py-2 py-md-3 px-3 px-md-4 d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success fw-bold px-4 shadow-sm" onclick="procesarYConvertirAPDF()">
+                        <i class="fas fa-file-pdf me-2"></i> Convertir a PDF Legible y Guardar
                     </button>
                 </div>
             </div>
@@ -435,236 +332,443 @@
         let modalCamaraInstance = null;
         let modalFiltroInstance = null;
         let modalRegistroInstance = null;
-        let modalEditarInstance = null;
         let streamActivo = null;
         let cropperInstance = null;
         let filtroSeleccionado = 'camscanner';
+        let modoVistaActual = 'recorte';
+        let facingModeActual = 'environment';
 
         document.addEventListener('DOMContentLoaded', function() {
             modalCamaraInstance = new bootstrap.Modal(document.getElementById('modalCamara'));
             modalFiltroInstance = new bootstrap.Modal(document.getElementById('modalEscaneoFiltro'));
             modalRegistroInstance = new bootstrap.Modal(document.getElementById('modalRegistroDocumento'));
-            modalEditarInstance = new bootstrap.Modal(document.getElementById('modalEditarDocumento'));
         });
 
-        // Abrir y rellenar Modal de Edición
-        function abrirModalEditar(btn) {
-            const id = btn.getAttribute('data-id');
-            
-            document.getElementById('formEditarDocumento').action = "/adjuntos/actualizar/" + id;
-            document.getElementById('editIdLabel').innerText = "#" + id;
+        // Función de formulario dinámico unificada idéntica a subir.html
+        function actualizarFormulario() {
+            const tipo = document.getElementById('tipo_documento').value;
+            const contenedor = document.getElementById('camposDinamicos');
+            let html = '';
 
-            document.getElementById('edit_nombre_solicitante').value = btn.getAttribute('data-nombre');
-            document.getElementById('edit_apellido_solicitante').value = btn.getAttribute('data-apellido');
-            document.getElementById('edit_nacionalidad').value = btn.getAttribute('data-nacionalidad');
-            document.getElementById('edit_cedula_solicitante').value = btn.getAttribute('data-cedula');
-            document.getElementById('edit_responsable').value = btn.getAttribute('data-responsable');
-            document.getElementById('edit_tipo_documento').value = btn.getAttribute('data-tipo');
-            document.getElementById('edit_num_acta').value = btn.getAttribute('data-acta');
-            document.getElementById('edit_anio').value = btn.getAttribute('data-anio');
-            document.getElementById('edit_tomo').value = btn.getAttribute('data-tomo');
-            document.getElementById('edit_folio').value = btn.getAttribute('data-folio');
+            const camposControlFisico = `
+                <div class="row g-3 mt-2 border-top pt-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-dark">Número de Acta <span class="text-danger">*</span></label>
+                        <input type="text" name="numero_acta" class="form-control form-control-sm" required placeholder="Ej. 00123">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-dark">Tomo</label>
+                        <input type="text" name="tomo" class="form-control form-control-sm" placeholder="Ej. Tomo I">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-dark">Folio</label>
+                        <input type="text" name="folio" class="form-control form-control-sm" placeholder="Ej. Folio 45">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-dark">Año del Acta <span class="text-danger">*</span></label>
+                        <input type="number" name="anio_documento" class="form-control form-control-sm" required placeholder="Ej. 2026" min="1900" max="2100" value="2026">
+                    </div>
+                </div>
+            `;
 
-            modalEditarInstance.show();
+            if (tipo === "Acta de nacimiento" || tipo === "Acta de matrimonio" || tipo === "Sentencia de divorcio") {
+                html = `
+                <div class="card border-0 bg-light p-3 rounded-3 mb-3 shadow-sm">
+                    <h6 class="fw-bold text-primary mb-2"><i class="bi bi-journal-text me-2"></i>Datos de ${tipo}</h6>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Titular / Contrayente Masculino</label>
+                            <input type="text" name="nombre_masculino" class="form-control form-control-sm" required placeholder="Ej. Juan Pérez">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Cónyuge / Contrayente Femenino</label>
+                            <input type="text" name="nombre_femenino" class="form-control form-control-sm" required placeholder="Ej. María Gómez">
+                        </div>
+                    </div>
+                    ${camposControlFisico}
+                </div>`;
+            } else if (tipo === "Título de cementerio") {
+                html = `
+                <div class="card border-0 bg-light p-3 rounded-3 mb-3 shadow-sm">
+                    <h6 class="fw-bold text-primary mb-2"><i class="bi bi-building me-2"></i>Datos de Título de Cementerio</h6>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Tipo de Cementerio</label>
+                            <select name="sub_tipo_cementerio" class="form-select form-select-sm" required>
+                                <option value="" selected disabled>-- Seleccione Cementerio --</option>
+                                <option value="Cementerio San José">Cementerio San José</option>
+                                <option value="Cementerio Corazón de Jesús">Cementerio Corazón de Jesús</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Nombre y Apellido del Titular</label>
+                            <input type="text" name="nombre_titular" class="form-control form-control-sm" required placeholder="Ej. Carlos Silva">
+                        </div>
+                    </div>
+                    ${camposControlFisico}
+                </div>`;
+            } else if (tipo === "Gaceta oficial") {
+                html = `
+                <div class="card border-0 bg-light p-3 rounded-3 mb-3 shadow-sm">
+                    <h6 class="fw-bold text-primary mb-2"><i class="bi bi-journal-bookmark me-2"></i>Datos de Gaceta Oficial</h6>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Fecha de la Gaceta</label>
+                            <input type="date" name="fecha_gaceta" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Número de Gaceta Oficial</label>
+                            <input type="text" name="numero_gaceta" class="form-control form-control-sm" required placeholder="Ej. 4589-A">
+                        </div>
+                    </div>
+                    ${camposControlFisico}
+                </div>`;
+            } else if (tipo === "Expedientes laborales") {
+                html = `
+                <div class="card border-0 bg-light p-3 rounded-3 mb-3 shadow-sm">
+                    <h6 class="fw-bold text-primary mb-2"><i class="bi bi-briefcase me-2"></i>Datos de Expediente Laboral</h6>
+                    <div class="row g-2">
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold small">Nombre y Apellido del Titular</label>
+                            <input type="text" name="nombre_titular" class="form-control form-control-sm" required placeholder="Ej. Pedro Morales">
+                        </div>
+                        <div class="col-md-6 mt-2">
+                            <label class="form-label fw-semibold small">Fecha de Ingreso</label>
+                            <input type="date" name="fecha_ingreso_lab" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-md-6 mt-2">
+                            <label class="form-label fw-semibold small">Fecha de Egreso</label>
+                            <input type="date" name="fecha_egreso_lab" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                    ${camposControlFisico}
+                </div>`;
+            } else {
+                html = `
+                <div class="card border-0 bg-light p-3 rounded-3 mb-3 shadow-sm">
+                    <h6 class="fw-bold text-primary mb-2"><i class="bi bi-folder2-open me-2"></i>Datos de ${tipo}</h6>
+                    <div class="row g-2">
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold small">Nombre y Apellido del Titular</label>
+                            <input type="text" name="nombre_titular" class="form-control form-control-sm" required placeholder="Ej. Ana Rodríguez">
+                        </div>
+                    </div>
+                    ${camposControlFisico}
+                </div>`;
+            }
+            contenedor.innerHTML = html;
         }
 
-        // Selección y Control de Cámaras
+        // Lista de dispositivos y control de cámara
+        let listaDispositivosCamara = [];
+        let indexCamaraActual = 0;
+
+        function detenerStreamCamara() {
+            if (streamActivo) {
+                try {
+                    streamActivo.getTracks().forEach(track => track.stop());
+                } catch(e) {}
+                streamActivo = null;
+            }
+            const video = document.getElementById('videoCamara');
+            if (video) video.srcObject = null;
+        }
+
         async function abrirSelectorCamaras() {
             modalCamaraInstance.show();
-            await listarDispositivosCamara();
+            await inicializarCamarasModal();
         }
 
-        async function listarDispositivosCamara() {
+        async function inicializarCamarasModal() {
+            detenerStreamCamara();
+            const alertError = document.getElementById('alertaCamaraError');
+            if (alertError) alertError.classList.add('d-none');
             const select = document.getElementById('selectDispositivoCamara');
-            select.innerHTML = '';
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                mostrarErrorCamara("Su navegador no soporta acceso directo a cámaras.");
+                return;
+            }
+
             try {
-                const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                tempStream.getTracks().forEach(track => track.stop());
+                // Pedir permiso para obtener nombres de cámaras
+                const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                tempStream.getTracks().forEach(t => t.stop());
 
                 const devices = await navigator.mediaDevices.enumerateDevices();
-                const videoDevices = devices.filter(device => device.kind === 'videoinput');
-
-                if (videoDevices.length === 0) {
-                    alert("No se detectaron cámaras disponibles.");
-                    return;
+                listaDispositivosCamara = devices.filter(d => d.kind === 'videoinput');
+                if (select) {
+                    select.innerHTML = '';
+                    listaDispositivosCamara.forEach((dev, idx) => {
+                        const opt = document.createElement('option');
+                        opt.value = dev.deviceId;
+                        opt.text = dev.label || `Cámara ${idx + 1}`;
+                        select.appendChild(opt);
+                    });
                 }
 
-                videoDevices.forEach((device, index) => {
-                    const option = document.createElement('option');
-                    option.value = device.deviceId;
-                    option.text = device.label || `Cámara ${index + 1}`;
-                    select.appendChild(option);
-                });
-
-                iniciarStreamCamara(videoDevices[0].deviceId);
-            } catch (error) {
-                console.error("Error al acceder a cámaras:", error);
-                alert("Verifique los permisos del navegador para acceder a la cámara.");
+                if (listaDispositivosCamara.length > 0) {
+                    await iniciarCamaraPorDeviceId(listaDispositivosCamara[0].deviceId);
+                } else {
+                    await iniciarCamaraPorConstraints({ video: { facingMode: { ideal: facingModeActual } } });
+                }
+            } catch(err) {
+                console.warn("Error enumerando cámaras, intentando modo básico:", err);
+                try {
+                    await iniciarCamaraPorConstraints({ video: true });
+                } catch(e2) {
+                    mostrarErrorCamara("No se pudo iniciar la cámara: " + (e2.message || e2.name));
+                }
             }
         }
 
-        async function iniciarStreamCamara(deviceId) {
-            if (streamActivo) {
-                streamActivo.getTracks().forEach(track => track.stop());
-            }
+        async function iniciarCamaraPorDeviceId(deviceId) {
+            detenerStreamCamara();
             try {
-                const constraints = { video: { deviceId: deviceId ? { exact: deviceId } : undefined } };
+                streamActivo = await navigator.mediaDevices.getUserMedia({
+                    video: { deviceId: { exact: deviceId } },
+                    audio: false
+                });
+                const video = document.getElementById('videoCamara');
+                video.srcObject = streamActivo;
+                await video.play();
+            } catch(e) {
+                console.warn("Fallo por deviceId, intentando fallback:", e);
+                iniciarCamaraPorConstraints({ video: true });
+            }
+        }
+
+        async function iniciarCamaraPorConstraints(constraints) {
+            detenerStreamCamara();
+            try {
                 streamActivo = await navigator.mediaDevices.getUserMedia(constraints);
-                document.getElementById('videoCamara').srcObject = streamActivo;
-            } catch (error) {
-                console.error("Error al iniciar stream:", error);
+                const video = document.getElementById('videoCamara');
+                video.srcObject = streamActivo;
+                await video.play();
+            } catch(e) {
+                mostrarErrorCamara("No se pudo acceder a la cámara. Verifique los permisos.");
             }
         }
 
         function cambiarCamaraSeleccionada() {
-            const deviceId = document.getElementById('selectDispositivoCamara').value;
-            iniciarStreamCamara(deviceId);
+            const select = document.getElementById('selectDispositivoCamara');
+            if (select && select.value) {
+                iniciarCamaraPorDeviceId(select.value);
+            }
+        }
+
+        function alternarCamaraTraseraFrontal() {
+            if (listaDispositivosCamara.length > 1) {
+                indexCamaraActual = (indexCamaraActual + 1) % listaDispositivosCamara.length;
+                const nextDev = listaDispositivosCamara[indexCamaraActual];
+                const select = document.getElementById('selectDispositivoCamara');
+                if (select) select.value = nextDev.deviceId;
+                iniciarCamaraPorDeviceId(nextDev.deviceId);
+            } else {
+                facingModeActual = (facingModeActual === 'user') ? 'environment' : 'user';
+                iniciarCamaraPorConstraints({ video: { facingMode: { ideal: facingModeActual } } });
+            }
+        }
+
+        function mostrarErrorCamara(msg) {
+            const alertError = document.getElementById('alertaCamaraError');
+            const msgEl = document.getElementById('msgCamaraError');
+            if (alertError && msgEl) {
+                msgEl.textContent = msg;
+                alertError.classList.remove('d-none');
+            }
         }
 
         function capturarFotoCamara() {
             const video = document.getElementById('videoCamara');
             const canvas = document.getElementById('canvasCaptura');
-            canvas.width = video.videoWidth || 1280;
-            canvas.height = video.videoHeight || 720;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            if (streamActivo) {
-                streamActivo.getTracks().forEach(track => track.stop());
+            if (!video.videoWidth || !video.videoHeight) {
+                alert('La cámara se está iniciando, por favor espere un momento.');
+                return;
             }
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            detenerStreamCamara();
             modalCamaraInstance.hide();
-
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-            mostrarModalFiltro(dataUrl);
+            mostrarModalFiltro(canvas.toDataURL('image/jpeg', 0.95));
         }
 
         function procesarArchivoExterno(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             if (file.type.startsWith('image/')) {
                 const reader = new FileReader();
-                reader.onload = function(e) {
-                    mostrarModalFiltro(e.target.result);
-                };
+                reader.onload = e => mostrarModalFiltro(e.target.result);
                 reader.readAsDataURL(file);
             } else if (file.type === 'application/pdf') {
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                document.getElementById('inputArchivoReal').files = dataTransfer.files;
-                document.getElementById('nombreArchivoSeleccionado').innerText = "📄 PDF Adjuntado: " + file.name;
+                asignarArchivoReal(file, file.name);
             }
             event.target.value = '';
         }
 
-        // Mostrar Editor Cropper.js
+        function asignarArchivoReal(file, nombreVisible) {
+            const inputReal = document.getElementById('inputArchivoReal');
+            try {
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                inputReal.files = dt.files;
+            } catch(e) {
+                console.warn("DataTransfer no soportado completamente:", e);
+            }
+            const infoDiv = document.getElementById('nombreArchivoSeleccionado');
+            if (infoDiv) {
+                infoDiv.innerHTML = `<i class='bi bi-file-earmark-pdf-fill text-danger me-1'></i> <strong>Archivo Listo:</strong> ${nombreVisible}`;
+                infoDiv.style.display = 'block';
+            }
+        }
+
         function mostrarModalFiltro(dataUrl) {
             const imgElement = document.getElementById('imgPreviewFiltro');
             imgElement.src = dataUrl;
-
+            modoVistaActual = 'recorte';
+            activarModoRecorte();
             modalFiltroInstance.show();
-
+            
             const modalEl = document.getElementById('modalEscaneoFiltro');
-            modalEl.addEventListener('shown.bs.modal', function handler() {
-                if (cropperInstance) {
-                    cropperInstance.destroy();
-                }
+            const handler = function() {
+                if (cropperInstance) cropperInstance.destroy();
                 cropperInstance = new Cropper(imgElement, {
                     viewMode: 1,
-                    autoCropArea: 0.95,
+                    autoCropArea: 0.96,
                     responsive: true,
-                    background: false
+                    background: false,
+                    crop: () => { if (modoVistaActual === 'resultado') actualizarCanvasRealtime(); }
                 });
                 modalEl.removeEventListener('shown.bs.modal', handler);
-            });
+            };
+            modalEl.addEventListener('shown.bs.modal', handler);
         }
 
-        function rotarImagen(grados) {
-            if (cropperInstance) {
-                cropperInstance.rotate(grados);
-            }
+        function activarModoRecorte() {
+            modoVistaActual = 'recorte';
+            document.getElementById('tab-recorte-btn').classList.add('active');
+            document.getElementById('tab-resultado-btn').classList.remove('active');
+            document.getElementById('contenedorCropperArea').classList.remove('d-none');
+            document.getElementById('contenedorCanvasArea').classList.add('d-none');
         }
 
-        function seleccionarFiltro(filtro) {
+        function activarModoResultado() {
+            modoVistaActual = 'resultado';
+            document.getElementById('tab-recorte-btn').classList.remove('active');
+            document.getElementById('tab-resultado-btn').classList.add('active');
+            document.getElementById('contenedorCropperArea').classList.add('d-none');
+            document.getElementById('contenedorCanvasArea').classList.remove('d-none');
+            actualizarCanvasRealtime();
+        }
+
+        function rotarImagen(deg) { if (cropperInstance) cropperInstance.rotate(deg); }
+        function restablecerRecorte() { if (cropperInstance) cropperInstance.reset(); }
+
+        function cambiarFiltroRealtime(filtro) {
             filtroSeleccionado = filtro;
-            alert(`Filtro activado: ${filtro.toUpperCase()}`);
+            const tag = document.getElementById('tagFiltroActivo');
+            if (tag) {
+                tag.textContent = (filtro === 'camscanner') ? 'CamScanner' : (filtro === 'contraste' ? 'Texto Nítido' : (filtro === 'grises' ? 'Grises' : 'Color'));
+            }
+            if (modoVistaActual === 'recorte') activarModoResultado();
+            else actualizarCanvasRealtime();
         }
 
-        // Recortar, Aplicar Filtro y Convertir a PDF
-        async function procesarYConvertirAPDF() {
+        function actualizarCanvasRealtime() {
             if (!cropperInstance) return;
+            const cropped = cropperInstance.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1600 });
+            if (!cropped) return;
+            const canvasDest = document.getElementById('canvasPreviewRealtime');
+            canvasDest.width = cropped.width;
+            canvasDest.height = cropped.height;
+            const ctx = canvasDest.getContext('2d');
+            ctx.drawImage(cropped, 0, 0);
+            aplicarFiltroLegibilidad(ctx, canvasDest.width, canvasDest.height);
+        }
 
-            const canvasRecortado = cropperInstance.getCroppedCanvas({
-                maxWidth: 2048,
-                maxHeight: 2048,
-                imageSmoothingEnabled: true,
-                imageSmoothingQuality: 'high'
-            });
-
-            const canvasProcesado = document.createElement('canvas');
-            canvasProcesado.width = canvasRecortado.width;
-            canvasProcesado.height = canvasRecortado.height;
-            const ctx = canvasProcesado.getContext('2d');
-            ctx.drawImage(canvasRecortado, 0, 0);
-
-            const imgData = ctx.getImageData(0, 0, canvasProcesado.width, canvasProcesado.height);
+        function aplicarFiltroLegibilidad(ctx, width, height) {
+            if (filtroSeleccionado === 'color') return; // Color original
+            const imgData = ctx.getImageData(0, 0, width, height);
             const pixels = imgData.data;
-
             for (let i = 0; i < pixels.length; i += 4) {
-                let r = pixels[i];
-                let g = pixels[i + 1];
-                let b = pixels[i + 2];
-                let avg = r * 0.299 + g * 0.587 + b * 0.114;
-
-                if (filtroSeleccionado === 'grises') {
-                    pixels[i] = pixels[i + 1] = pixels[i + 2] = avg;
-                } 
-                else if (filtroSeleccionado === 'camscanner') {
-                    let val = avg > 135 ? 255 : 0;
-                    pixels[i] = pixels[i + 1] = pixels[i + 2] = val;
-                } 
-                else if (filtroSeleccionado === 'contraste') {
-                    let factor = 1.6;
-                    avg = Math.min(255, Math.max(0, factor * (avg - 128) + 128));
-                    pixels[i] = pixels[i + 1] = pixels[i + 2] = avg;
+                let r = pixels[i], g = pixels[i+1], b = pixels[i+2];
+                let gray = r * 0.299 + g * 0.587 + b * 0.114;
+                if (filtroSeleccionado === 'camscanner') {
+                    r = g = b = (gray > 135) ? Math.min(255, gray + 48) : Math.max(0, gray * 0.60 - 18);
+                } else if (filtroSeleccionado === 'contraste') {
+                    r = g = b = Math.min(255, Math.max(0, 2.3 * (gray - 128) + 128));
+                } else if (filtroSeleccionado === 'grises') {
+                    r = g = b = gray;
                 }
+                pixels[i] = r; pixels[i+1] = g; pixels[i+2] = b;
             }
             ctx.putImageData(imgData, 0, 0);
+        }
 
-            // Generar PDF usando jsPDF
-            const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF({
-                orientation: canvasProcesado.width > canvasProcesado.height ? 'l' : 'p',
-                unit: 'mm',
-                format: 'a4'
-            });
-
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            const imgDataURL = canvasProcesado.toDataURL('image/jpeg', 0.90);
-
-            const ratio = Math.min(pageWidth / canvasProcesado.width, pageHeight / canvasProcesado.height);
-            const imgW = canvasProcesado.width * ratio;
-            const imgH = canvasProcesado.height * ratio;
-            const posX = (pageWidth - imgW) / 2;
-            const posY = (pageHeight - imgH) / 2;
-
-            pdf.addImage(imgDataURL, 'JPEG', posX, posY, imgW, imgH);
-
-            const pdfBlob = pdf.output('blob');
-            const nombrePdf = `documento_escaneado_${Date.now()}.pdf`;
-            const archivoPDF = new File([pdfBlob], nombrePdf, { type: 'application/pdf' });
-
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(archivoPDF);
-            document.getElementById('inputArchivoReal').files = dataTransfer.files;
-            document.getElementById('nombreArchivoSeleccionado').innerText = "📄 PDF Generado Exitosamente: " + nombrePdf;
-
-            if (cropperInstance) {
-                cropperInstance.destroy();
-                cropperInstance = null;
+        async function procesarYConvertirAPDF() {
+            if (!cropperInstance) return;
+            const btnConvertir = event ? event.target.closest('button') : null;
+            if (btnConvertir) {
+                btnConvertir.disabled = true;
+                btnConvertir.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Generando PDF...';
             }
-            modalFiltroInstance.hide();
+
+            try {
+                const canvasRecortado = cropperInstance.getCroppedCanvas({ maxWidth: 2480, maxHeight: 3508 });
+                const ctx = canvasRecortado.getContext('2d');
+                aplicarFiltroLegibilidad(ctx, canvasRecortado.width, canvasRecortado.height);
+
+                let archivoGenerado = null;
+                const nombrePdf = `documento_escaneado_${Date.now()}.pdf`;
+
+                // Verificar si jsPDF está disponible
+                const jsPDFConstructor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : (window.jsPDF || null);
+
+                if (jsPDFConstructor) {
+                    const isLandscape = canvasRecortado.width > canvasRecortado.height;
+                    const pdf = new jsPDFConstructor({
+                        orientation: isLandscape ? 'l' : 'p',
+                        unit: 'mm',
+                        format: 'a4'
+                    });
+                    const pageWidth = pdf.internal.pageSize.getWidth();
+                    const pageHeight = pdf.internal.pageSize.getHeight();
+                    const ratio = Math.min(pageWidth / canvasRecortado.width, pageHeight / canvasRecortado.height);
+                    const destW = canvasRecortado.width * ratio;
+                    const destH = canvasRecortado.height * ratio;
+                    const destX = (pageWidth - destW) / 2;
+                    const destY = (pageHeight - destH) / 2;
+
+                    const imgData = canvasRecortado.toDataURL('image/jpeg', 0.92);
+                    pdf.addImage(imgData, 'JPEG', destX, destY, destW, destH);
+                    const pdfBlob = pdf.output('blob');
+                    archivoGenerado = new File([pdfBlob], nombrePdf, { type: 'application/pdf' });
+                } else {
+                    // Fallback: Si jsPDF no cargó, enviar como imagen JPG (el servidor de Flask lo convertirá automáticamente a PDF con Pillow)
+                    console.warn("jsPDF no disponible, usando fallback con conversión del servidor.");
+                    const blob = await new Promise(resolve => canvasRecortado.toBlob(resolve, 'image/jpeg', 0.92));
+                    archivoGenerado = new File([blob], `documento_escaneado_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                }
+
+                if (archivoGenerado) {
+                    asignarArchivoReal(archivoGenerado, nombrePdf);
+                }
+
+                if (cropperInstance) {
+                    cropperInstance.destroy();
+                    cropperInstance = null;
+                }
+                modalFiltroInstance.hide();
+            } catch(e) {
+                console.error("Error al convertir a PDF:", e);
+                alert("Error al procesar el archivo: " + e.message);
+            } finally {
+                if (btnConvertir) {
+                    btnConvertir.disabled = false;
+                    btnConvertir.innerHTML = '<i class="fas fa-file-pdf me-2"></i> Convertir a PDF Legible y Guardar';
+                }
+            }
         }
 
         document.getElementById('navLogo').addEventListener('error', function() {

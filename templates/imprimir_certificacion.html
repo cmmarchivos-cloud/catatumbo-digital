@@ -1,13 +1,13 @@
-Aquí tienes el código completo de la plantilla ajustado. Se eliminó la condición restrictiva para que **Año, Tomo y Folio** aparezcan siempre de forma fija en la preforma de certificación, sin importar el tipo de documento:
-
-```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <meta charset="UTF-8">
-    <title>Certificación - Expediente N° #{{ documento.id }}</title>
+    <title>Copia Certificada - Expediente N° #{{ documento.id }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     
     <style>
         /* ESTILOS GENERALES DE PANTALLA */
@@ -16,7 +16,6 @@ Aquí tienes el código completo de la plantilla ajustado. Se eliminó la condic
             font-family: Arial, sans-serif;
         }
 
-        /* 1. EN PANTALLA: Ocultar la cara anverso en el panel derecho para EVITAR la duplicación del visor PDF */
         @media screen {
             .pagina-anverso {
                 display: none !important;
@@ -69,12 +68,12 @@ Aquí tienes el código completo de la plantilla ajustado. Se eliminó la condic
         }
 
         .texto-certificacion {
-            font-size: 1.15rem;
+            font-size: 1.1rem;
             line-height: 1.8;
             text-align: justify;
         }
 
-        /* 2. REGLAS EXCLUSIVAS DE IMPRESIÓN (DÚPLEX / DOBLE CARA) */
+        /* REGLAS DE IMPRESIÓN (DÚPLEX / DOBLE CARA) */
         @media print {
             .no-print {
                 display: none !important;
@@ -101,7 +100,6 @@ Aquí tienes el código completo de la plantilla ajustado. Se eliminó la condic
                 max-width: 100% !important;
             }
             
-            /* MOSTRAR ANVERSO EN IMPRESIÓN (PÁGINA 1: DOCUMENTO ORIGINAL) */
             .pagina-anverso {
                 display: block !important;
                 height: 100vh !important;
@@ -116,7 +114,6 @@ Aquí tienes el código completo de la plantilla ajustado. Se eliminó la condic
                 border: none !important;
             }
 
-            /* REVERSO EN IMPRESIÓN (PÁGINA 2: PREFORMA DE CERTIFICACIÓN) */
             .pagina-reverso {
                 page-break-before: always !important;
                 break-before: page !important;
@@ -137,12 +134,42 @@ Aquí tienes el código completo de la plantilla ajustado. Se eliminó la condic
                 margin: 0;
             }
         }
+    
+        /* Botones de barra superior */
+        .btn-nav-top {
+            color: rgba(255, 255, 255, 0.85) !important;
+            background-color: transparent !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 8px;
+            transition: all 0.25s ease-in-out;
+        }
+        .btn-nav-top:hover {
+            color: #38bdf8 !important;
+            background-color: rgba(56, 189, 248, 0.12) !important;
+            border-color: rgba(56, 189, 248, 0.3) !important;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.15);
+        }
+        .btn-nav-top-action {
+            background-color: #059669 !important;
+            border-color: #059669 !important;
+            color: #ffffff !important;
+            border-radius: 8px;
+            transition: all 0.25s ease-in-out;
+        }
+        .btn-nav-top-action:hover {
+            background-color: #10b981 !important;
+            border-color: #10b981 !important;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+        }
+
     </style>
 </head>
 <body>
 
     <!-- NAV BAR (OCULTA AL IMPRIMIR) -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 no-print">
+    <nav class="navbar navbar-dark sticky-top shadow-sm py-2 mb-4 no-print" style="background-color: #0f172a !important; z-index: 1040;">
         <div class="container-fluid px-4">
             <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">
                 <i class="fas fa-file-contract me-2"></i>Catatumbo Digital - CMM
@@ -160,10 +187,13 @@ Aquí tienes el código completo de la plantilla ajustado. Se eliminó la condic
                 </div>
                 {% endif %}
 
-                <a href="{{ url_for('ver_detalle', id=documento.id) }}" class="btn btn-outline-light btn-sm">
+                <a href="{{ url_for('buscar') }}" class="btn btn-nav-top btn-sm">
+                    <i class="fas fa-search me-1"></i> Buscar
+                </a>
+                <a href="{{ url_for('ver_detalle', id=documento.id) }}" class="btn btn-nav-top btn-sm">
                     <i class="fas fa-arrow-left me-1"></i> Volver al Detalle
                 </a>
-                <button onclick="window.print()" class="btn btn-success btn-sm fw-bold">
+                <button onclick="window.print()" class="btn btn-nav-top-action btn-sm fw-bold">
                     <i class="fas fa-print me-1"></i> Imprimir a Doble Cara
                 </button>
             </div>
@@ -173,7 +203,7 @@ Aquí tienes el código completo de la plantilla ajustado. Se eliminó la condic
     <div class="container-fluid px-4 mb-5">
         <div class="row g-4">
             
-            <!-- PANEL IZQUIERDO: UNICO VISOR VISIBLE EN PANTALLA (OCULTO AL IMPRIMIR) -->
+            <!-- PANEL IZQUIERDO: VISOR DE CONSULTA (OCULTO AL IMPRIMIR) -->
             <div class="col-lg-5 no-print">
                 <div class="card shadow-sm border-secondary sticky-top" style="top: 20px;">
                     <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
@@ -196,106 +226,60 @@ Aquí tienes el código completo de la plantilla ajustado. Se eliminó la condic
             <!-- PANEL DERECHO: EDICIÓN DE PREFORMA Y SALIDA A IMPRESIÓN DÚPLEX -->
             <div class="col-lg-7 col-impresion">
                 
-                <!-- PÁGINA 1: ANVERSO (OCULTA EN PANTALLA, ACTIVA EN IMPRESIÓN) -->
+                <!-- PÁGINA 1: ANVERSO (DOCUMENTO ORIGINAL) -->
                 <div class="hoja-impresion pagina-anverso">
                     {% if documento.archivos %}
                         <iframe id="pdfAnversoImpresion" class="visor-pdf-hoja" src="{{ url_for('ver_archivo', filename=documento.archivos[0]) }}"></iframe>
                     {% endif %}
                 </div>
 
-                <!-- PÁGINA 2: REVERSO (VISIBLE EN PANTALLA PARA EDICIÓN DIRECTA) -->
+                <!-- PÁGINA 2: REVERSO (COPIA CERTIFICADA OFICIAL) -->
                 <div class="hoja-impresion pagina-reverso">
                     <div class="etiqueta-cara no-print">
-                        <i class="fas fa-edit me-1"></i> EDICIÓN DE CERTIFICACIÓN (REVERSO - PÁGINA 2)
+                        <i class="fas fa-edit me-1"></i> EDICIÓN DE CERTIFICACIÓN MUNICIPAL (REVERSO - PÁGINA 2)
                     </div>
 
-                    <!-- MEMBRETE OFICIAL -->
+                    <!-- MEMBRETE OFICIAL CON LOGO -->
                     <div class="text-center mb-4">
                         <div class="mb-2">
-                            <i class="fas fa-landmark fa-3x text-dark"></i>
+                            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Concejo Municipal de Maracaibo" style="height: 75px; object-fit: contain;">
                         </div>
-                        <h6 class="fw-bold mb-1 text-uppercase">República Bolivariana de Venezuela</h6>
-                        <h6 class="fw-bold mb-1 text-uppercase">Estado Zulia - Concejo Municipal de Maracaibo</h6>
-                        <h5 class="fw-bold mb-1 text-uppercase text-decoration-underline">Catatumbo Digital - Archivo General</h5>
-                        <p class="small mb-0 text-muted">Coordinación de Certificación y Registro Documental</p>
+                        <h6 class="fw-bold mb-1 text-uppercase" style="font-size: 0.95rem;">República Bolivariana de Venezuela</h6>
+                        <h6 class="fw-bold mb-1 text-uppercase" style="font-size: 0.95rem;">Estado Zulia</h6>
+                        <h6 class="fw-bold mb-1 text-uppercase" style="font-size: 1rem;">Concejo del Municipio Maracaibo</h6>
+                        <h6 class="fw-bold mb-3 text-uppercase text-decoration-underline" style="font-size: 0.9rem;">Secretaría Municipal</h6>
                         
-                        <div class="mt-3 text-end">
-                            <span class="fw-bold">Fecha de Emisión:</span>
-                            <input type="text" class="input-inline text-end" style="width: 280px;" value="{{ fecha_actual }}">
-                        </div>
+                        <h4 class="fw-bold text-uppercase my-3" style="letter-spacing: 1px;">COPIA CERTIFICADA</h4>
                     </div>
 
-                    <hr class="border-2 border-dark my-4">
-
-                    <!-- TÍTULO DE CERTIFICACIÓN -->
-                    <div class="text-center my-4">
-                        <h3 class="fw-bold text-uppercase">CERTIFICACIÓN OFICIAL</h3>
-                    </div>
-
-                    <!-- PREFORMA EDITABLE -->
-                    <div class="texto-certificacion my-4">
+                    <!-- PREFORMA EDITABLE OFICIAL -->
+                    <div class="texto-certificacion my-3">
                         <p>
-                            Quien suscribe, 
-                            <input type="text" class="input-inline" style="width: 250px;" value="{{ funcionario }}" placeholder="Nombre del Funcionario">, 
-                            en mi carácter de 
-                            <input type="text" class="input-inline" style="width: 260px;" value="Certificador Oficial de Archivo" placeholder="Cargo del Funcionario">, 
-                            por medio de la presente <strong>CERTIFICO</strong> que la reproducción fotostática que antecede en el anverso de la presente hoja es copia fiel y exacta de su original, el cual reposa en los archivos de esta institución bajo la siguiente identificación:
-                        </p>
-
-                        <!-- CAMPOS DINÁMICOS Y EDITABLES -->
-                        <div class="p-3 my-3 border border-dark rounded bg-light">
-                            <div class="row g-2">
-                                <div class="col-6">
-                                    <strong>Tipo de Documento:</strong> 
-                                    <input type="text" class="input-inline" style="width: 180px;" value="{{ documento.tipo_documento }}">
-                                </div>
-                                <div class="col-6">
-                                    <strong>N° Expediente:</strong> #{{ documento.id }}
-                                </div>
-
-                                <div class="col-12">
-                                    <strong>Titular / Identificador:</strong> 
-                                    <input type="text" class="input-inline" style="width: 70%;" value="{{ documento.nombre_titular or documento.nombre_masculino or documento.nombre_femenino or documento.numero_acta or documento.numero_gaceta or documento.numero_registro or '' }}">
-                                </div>
-                                <div class="col-6">
-                                    <strong>N° Registro / Norma:</strong> 
-                                    <input type="text" class="input-inline" style="width: 120px;" value="{{ documento.numero_registro or documento.numero_gaceta or documento.numero_acta or 'N/A' }}">
-                                </div>
-                                <div class="col-6">
-                                    <strong>Año:</strong> 
-                                    <input type="text" class="input-inline" style="width: 150px;" value="{{ documento.fecha_documento or documento.fecha_gaceta or documento.anio_documento or 'N/A' }}">
-                                </div>
-
-                                <!-- CAMPOS, TOMO Y FOLIO FIJOS -->
-                                <div class="col-4">
-                                    <strong>Tomo:</strong> 
-                                    <input type="text" class="input-inline" style="width: 80px;" value="{{ documento.tomo or 'N/A' }}">
-                                </div>
-                                <div class="col-4">
-                                    <strong>Folio:</strong> 
-                                    <input type="text" class="input-inline" style="width: 80px;" value="{{ documento.folio or 'N/A' }}">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- OBSERVACIONES EDITABLES -->
-                        <p class="mt-3 mb-1">
-                            <strong>Observaciones Adicionales:</strong>
-                        </p>
-                        <textarea class="form-control border-secondary mb-3" rows="3" style="font-family: inherit; font-size: inherit;">Se expide la presente certificación a solicitud de parte interesada en la ciudad de Maracaibo, a los fines legales pertinentes.</textarea>
-
-                        <p>
-                            Constancia que se firma y sella a los efectos de expedición oficial del documento digitalizado bajo el expediente N° <strong>#{{ documento.id }}</strong>.
+                            Yo, <strong>Dr. EDWIN JOSUE BAPTISTA RODRIGUEZ</strong>, venezolano, mayor de edad, titular de la cédula de identidad No. <strong>V-16.622.181</strong>, en mi carácter de <strong>SECRETARIO DEL CONCEJO MUNICIPAL DE MARACAIBO</strong>, según consta en Sesión Extraordinaria de fecha 09 de enero de 2026, publicada en Gaceta Municipal Nº 001-2026 de fecha 09 de enero de 2026, de conformidad con las atribuciones conferidas por el numeral 6 del artículo 114 de la Ley Orgánica del Poder Público Municipal, y debidamente autorizado por la presidenta del Concejo Municipal de Maracaibo, Dessiree Fernández Parra, mediante oficio No. PCM-002-2026 de fecha 09 de enero de 2026, <strong>CERTIFICA:</strong> Que el presente fotostato se encuentra en el 
+                            <input type="text" class="input-inline" style="width: 250px;" value="{{ documento.tipo_documento or 'Tomo de Expediente de Matrimonio' }}" placeholder="Tipo de Documento / Tomo"> 
+                            N° <input type="text" class="input-inline" style="width: 60px;" value="{{ documento.tomo or '15' }}" placeholder="Tomo">, 
+                            año: <input type="text" class="input-inline" style="width: 70px;" value="{{ documento.fecha_documento or documento.anio_documento or '1983' }}" placeholder="Año">, 
+                            folio: <input type="text" class="input-inline" style="width: 140px;" value="{{ documento.folio or '128 su vuelto y 129' }}" placeholder="Folio">, 
+                            es copia fiel y exacta del Expediente que reposa en el Archivo Municipal llevado por esta Secretaría del Concejo Municipal de Maracaibo. Así lo certifico en Maracaibo, a los 
+                            <input type="text" class="input-inline" style="width: 90px;" value="{{ dia_actual | default('nueve (09)') }}" placeholder="Días"> 
+                            días del mes de 
+                            <input type="text" class="input-inline" style="width: 90px;" value="{{ mes_actual | default('octubre') }}" placeholder="Mes"> 
+                            del <input type="text" class="input-inline" style="width: 60px;" value="{{ anio_actual | default('2026') }}" placeholder="Año">.
                         </p>
                     </div>
 
-                    <!-- SECCIÓN DE FIRMA -->
-                    <div class="row text-center mt-5 pt-5" style="page-break-inside: avoid;">
+                    <!-- ARTÍCULO 114 (REFERENCIA LEGAL) -->
+                    <div class="mt-4 p-2 border-start border-3 border-dark bg-white small text-muted" style="font-family: sans-serif; font-size: 0.8rem !important;">
+                        <em>Artículo 114: Son atribuciones del Secretario o Secretaria del Concejo Municipal: … 6.-Expedir, de conformidad con la ley, certificaciones de las actas de Concejo Municipal o de cualquier otro documento que repose en los archivos del órgano, previa autorización del Presidente o Presidenta del cuerpo…</em>
+                    </div>
+
+                    <!-- SECCIÓN DE FIRMA Y SELLO -->
+                    <div class="row text-center mt-5 pt-4" style="page-break-inside: avoid;">
                         <div class="col-6 offset-3">
                             <div class="border-top border-dark pt-2">
-                                <p class="fw-bold mb-0 text-uppercase">{{ funcionario }}</p>
-                                <p class="small mb-0">Funcionario Certificador Autorizado</p>
-                                <p class="small text-muted">Sello Oficial Institucional</p>
+                                <p class="fw-bold mb-0 text-uppercase" style="font-size: 1.05rem;">Dr. EDWIN JOSUE BAPTISTA RODRIGUEZ</p>
+                                <p class="small mb-1 fw-bold">Secretario del Concejo Municipal de Maracaibo</p>
+                                <p class="small text-muted mb-0">Firma y Sello del Secretario Municipal</p>
                             </div>
                         </div>
                     </div>
@@ -317,5 +301,3 @@ Aquí tienes el código completo de la plantilla ajustado. Se eliminó la condic
     </script>
 </body>
 </html>
-
-```

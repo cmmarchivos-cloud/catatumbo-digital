@@ -373,12 +373,21 @@ def subir():
             return redirect(url_for('subir'))
 
         for file in uploaded_files:
-            if file and file.filename.endswith('.pdf'):
-                filename = secure_filename(file.filename)
-                unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
-                filepath = os.path.join(UPLOAD_FOLDER, unique_filename)
-                file.save(filepath)
-                archivos_subidos.append(unique_filename)
+            if file and file.filename:
+                fn_lower = file.filename.lower()
+                if fn_lower.endswith('.pdf') or any(fn_lower.endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.webp']):
+                    filename = secure_filename(file.filename)
+                    unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+                    filepath = os.path.join(UPLOAD_FOLDER, unique_filename)
+                    file.save(filepath)
+                    archivos_subidos.append(unique_filename)
+                    try:
+                        import shutil
+                        upload_static_dir = os.path.join(BASE_DIR, 'static', 'uploads')
+                        os.makedirs(upload_static_dir, exist_ok=True)
+                        shutil.copy2(filepath, os.path.join(upload_static_dir, unique_filename))
+                    except Exception:
+                        pass
                 
         nuevo_doc = {
             'tipo_documento': tipo_documento,
@@ -619,6 +628,22 @@ def base_datos_admin():
         return redirect(url_for('index'))
     return render_template('base_datos.html')
 
+@app.route('/base_datos/editar', methods=['POST'])
+def editar_contenido_db():
+    if 'user' not in session or session['rol'] != 'master':
+        return redirect(url_for('login'))
+    
+    registro_id = request.form.get('registro_id')
+    if registro_id:
+        try:
+            return redirect(url_for('editar', idx=int(registro_id)))
+        except ValueError:
+            flash('El ID de registro debe ser un número válido.', 'warning')
+            return redirect(url_for('base_datos_admin'))
+    
+    flash('Debe proporcionar un ID de registro válido.', 'warning')
+    return redirect(url_for('base_datos_admin'))
+
 @app.route('/base_datos/borrar', methods=['POST'])
 def borrar_contenido_db():
     if 'user' not in session or session['rol'] != 'master': return redirect(url_for('login'))
@@ -725,4 +750,4 @@ def api_sincronizar():
         return jsonify({"status": "ok"}), 200
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)

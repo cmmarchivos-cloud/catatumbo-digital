@@ -13,35 +13,8 @@
         .card-header { background-color: #0f172a; color: white; border-top-left-radius: 12px !important; border-top-right-radius: 12px !important; padding: 1.25rem 1.5rem; }
     </style>
 </head>
-<body class="bg-light d-flex flex-column vh-100">
-    <nav class="navbar navbar-dark navbar-expand-lg shadow-sm py-3" style="background-color: #0f172a !important;">
-        <div class="container">
-            <a class="navbar-brand d-flex align-items-center fw-bold" href="/">
-                <img src="{{ url_for('static', filename='img/logo.png') }}" id="navLogo" alt="Logo" style="height: 38px;" class="me-2 bg-white rounded p-1">
-                Archivo Municipal de Maracaibo
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <div class="navbar-nav ms-auto align-items-lg-center">
-                    <a class="nav-link px-3 fw-semibold" href="/"><i class="bi bi-house-door me-1"></i> Inicio</a>
-                    <a class="nav-link px-3 fw-semibold" href="/buscar"><i class="bi bi-search me-1"></i> Buscar</a>
-                    <a class="nav-link px-3 fw-bold text-warning" href="{{ url_for('solicitudes_bp.ver_solicitudes') }}"><i class="bi bi-inbox-fill me-1"></i> Solicitudes</a>
-                    {% if session.rol in ['master', 'gestor', 'supervisor'] %}
-                        <a class="nav-link px-3 fw-semibold" href="/subir"><i class="bi bi-cloud-arrow-up me-1"></i> Cargar</a>
-                    {% endif %}
-                    {% if session.rol == 'master' %}
-                        <a class="nav-link text-warning fw-bold px-3" href="/usuarios"><i class="bi bi-shield-lock me-1"></i> Usuarios</a>
-                        <a class="nav-link text-info fw-bold px-3 active" href="{{ url_for('panel_sistema') }}"><i class="fas fa-cogs me-1"></i> Sistema</a>
-                        <a class="nav-link text-warning fw-bold px-3" href="{{ url_for('base_datos_admin') }}"><i class="fas fa-database me-1"></i> Base de Datos</a>
-                    {% endif %}
-                    <span class="text-light ms-lg-3 my-2 my-lg-0 small bg-secondary px-3 py-1 rounded-pill"><i class="bi bi-person-badge me-1"></i> {{ session.nombre }} <span class="badge bg-dark text-warning ms-1">{{ session.rol|upper }}</span></span>
-                    <a class="btn btn-outline-light btn-sm ms-lg-3" href="/logout"><i class="bi bi-power"></i> Salir</a>
-                </div>
-            </div>
-        </div>
-    </nav>
+<body class="bg-light d-flex flex-column min-vh-100">
+    {% include 'navbar.html' %}
 
     <div class="container py-4 flex-grow-1">
         <div class="row justify-content-center">

@@ -57,176 +57,8 @@ def obtener_trimestre(fecha_str):
         
     return "Desconocido"
 
-# --- VISTA INDEPENDIENTE: GESTIÓN DE ARCHIVOS Y ADJUNTOS ---
-@solicitudes_bp.route('/adjuntos')
-def vista_adjuntos():
-    if 'user' not in session:
-        return redirect(url_for('login'))
-        
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS adjuntos_escanner (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre_solicitante TEXT NOT NULL,
-            apellido_solicitante TEXT NOT NULL,
-            nacionalidad TEXT NOT NULL,
-            cedula_solicitante TEXT NOT NULL,
-            nombre_funcionario TEXT NOT NULL,
-            tipo_documento TEXT NOT NULL,
-            numero_acta TEXT,
-            anio INTEGER,
-            tomo TEXT,
-            folio TEXT,
-            url_adjunto_copia TEXT,
-            fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    conn.commit()
-    
-    solicitudes = conn.execute(
-        "SELECT * FROM adjuntos_escanner ORDER BY id DESC"
-    ).fetchall()
-    conn.close()
-    
-    return render_template('adjuntos.html', solicitudes=solicitudes)
-
-# --- RUTA: GUARDAR ADJUNTO Y REGISTRO DE ESCÁNER ---
-@solicitudes_bp.route('/guardar-adjunto', methods=['POST'])
-def guardar_adjunto():
-    if 'user' not in session:
-        return redirect(url_for('login'))
-    
-    nombre_solicitante = request.form.get('nombre_solicitante', '')
-    apellido_solicitante = request.form.get('apellido_solicitante', '')
-    nacionalidad = request.form.get('nacionalidad', 'V')
-    cedula_solicitante = request.form.get('cedula_solicitante', '')
-    nombre_funcionario = request.form.get('nombre_funcionario', '')
-    tipo_documento = request.form.get('tipo_documento', 'Acta')
-    numero_acta = request.form.get('numero_acta', '')
-    anio = request.form.get('anio', datetime.now().year)
-    tomo = request.form.get('tomo', '')
-    folio = request.form.get('folio', '')
-    
-    archivo = request.files.get('url_adjunto_copia')
-    url_adjunto = None
-    
-    if archivo and archivo.filename != '':
-        filename = secure_filename(archivo.filename)
-        upload_folder = os.path.join('static', 'uploads')
-        os.makedirs(upload_folder, exist_ok=True)
-        
-        ruta_guardado = os.path.join(upload_folder, filename)
-        archivo.save(ruta_guardado)
-        
-        url_adjunto = url_for('static', filename=f'uploads/{filename}')
-
-    try:
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            INSERT INTO adjuntos_escanner (
-                nombre_solicitante, apellido_solicitante, nacionalidad, cedula_solicitante,
-                nombre_funcionario, tipo_documento, numero_acta, anio, tomo, folio, url_adjunto_copia
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            nombre_solicitante, apellido_solicitante, nacionalidad, cedula_solicitante,
-            nombre_funcionario, tipo_documento, numero_acta, anio, tomo, folio, url_adjunto
-        ))
-        
-        conn.commit()
-        conn.close()
-        flash('✅ Documento, metadatos y archivo adjunto guardados correctamente.', 'success')
-    except Exception as e:
-        flash(f'❌ Error al guardar en la base de datos: {str(e)}', 'danger')
-
-    return redirect(url_for('solicitudes_bp.vista_adjuntos'))
-
-# --- RUTA: ACTUALIZAR REGISTRO Y ADJUNTO EXISTENTE ---
-@solicitudes_bp.route('/adjuntos/actualizar/<int:id>', methods=['POST'])
-def actualizar_adjunto(id):
-    if 'user' not in session:
-        return redirect(url_for('login'))
-    
-    nombre_solicitante = request.form.get('nombre_solicitante', '')
-    apellido_solicitante = request.form.get('apellido_solicitante', '')
-    nacionalidad = request.form.get('nacionalidad', 'V')
-    cedula_solicitante = request.form.get('cedula_solicitante', '')
-    nombre_funcionario = request.form.get('nombre_funcionario', '')
-    tipo_documento = request.form.get('tipo_documento', 'Acta')
-    numero_acta = request.form.get('numero_acta', '')
-    anio = request.form.get('anio', datetime.now().year)
-    tomo = request.form.get('tomo', '')
-    folio = request.form.get('folio', '')
-    
-    archivo = request.files.get('url_adjunto_copia')
-    
-    try:
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        if archivo and archivo.filename != '':
-            filename = secure_filename(archivo.filename)
-            upload_folder = os.path.join('static', 'uploads')
-            os.makedirs(upload_folder, exist_ok=True)
-            
-            ruta_guardado = os.path.join(upload_folder, filename)
-            archivo.save(ruta_guardado)
-            url_adjunto = url_for('static', filename=f'uploads/{filename}')
-            
-            cursor.execute("""
-                UPDATE adjuntos_escanner SET 
-                    nombre_solicitante = ?, apellido_solicitante = ?, nacionalidad = ?, cedula_solicitante = ?,
-                    nombre_funcionario = ?, tipo_documento = ?, numero_acta = ?, anio = ?, tomo = ?, folio = ?, url_adjunto_copia = ?
-                WHERE id = ?
-            """, (nombre_solicitante, apellido_solicitante, nacionalidad, cedula_solicitante, 
-                  nombre_funcionario, tipo_documento, numero_acta, anio, tomo, folio, url_adjunto, id))
-        else:
-            cursor.execute("""
-                UPDATE adjuntos_escanner SET 
-                    nombre_solicitante = ?, apellido_solicitante = ?, nacionalidad = ?, cedula_solicitante = ?,
-                    nombre_funcionario = ?, tipo_documento = ?, numero_acta = ?, anio = ?, tomo = ?, folio = ?
-                WHERE id = ?
-            """, (nombre_solicitante, apellido_solicitante, nacionalidad, cedula_solicitante, 
-                  nombre_funcionario, tipo_documento, numero_acta, anio, tomo, folio, id))
-            
-        conn.commit()
-        conn.close()
-        flash('✅ Registro actualizado correctamente.', 'success')
-    except Exception as e:
-        flash(f'❌ Error al actualizar el registro: {str(e)}', 'danger')
-
-    return redirect(url_for('solicitudes_bp.vista_adjuntos'))
-
-# --- RUTA: ELIMINAR REGISTRO Y ARCHIVO ADJUNTO ---
-@solicitudes_bp.route('/adjuntos/eliminar/<int:id>')
-def eliminar_adjunto(id):
-    if 'user' not in session:
-        return redirect(url_for('login'))
-        
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    row = cursor.execute("SELECT url_adjunto_copia FROM adjuntos_escanner WHERE id = ?", (id,)).fetchone()
-    if row and row['url_adjunto_copia']:
-        url_path = row['url_adjunto_copia']
-        if url_path.startswith('/'):
-            relative_path = url_path.lstrip('/')
-            if os.path.exists(relative_path):
-                try:
-                    os.remove(relative_path)
-                except Exception:
-                    pass
-                    
-    cursor.execute("DELETE FROM adjuntos_escanner WHERE id = ?", (id,))
-    conn.commit()
-    conn.close()
-    
-    flash('🗑️ Registro de adjunto y archivo eliminados correctamente.', 'info')
-    return redirect(url_for('solicitudes_bp.vista_adjuntos'))
-
 # --- VISTA PRINCIPAL DE SOLICITUDES ---
+
 @solicitudes_bp.route('/solicitudes')
 def ver_solicitudes():
     if 'user' not in session:
@@ -424,11 +256,21 @@ def procesar_y_guardar(id):
             flash(f'⚠️ Error enviando correo: {str(e)}', 'danger')
 
     try:
-        conn.execute('''
+        cursor.execute('''
             UPDATE solicitudes_tramites 
             SET anio_expediente_titulo = ?, tomo = ?, folio = ?, num_acta = ?, monto = ?, estado = ?, codigo_seguridad = ?
             WHERE id = ?
         ''', (anio_expediente, tomo, folio, num_acta, monto, estado, codigo_seguridad, id))
+
+        # Registrar o actualizar en el historial acumulativo si el estado es PROCESADA
+        if estado == 'PROCESADA':
+            cursor.execute("SELECT id FROM op_procesados WHERE op = ?", (str(id),))
+            if not cursor.fetchone():
+                cursor.execute("""
+                    INSERT INTO op_procesados (op, tomo, folio, num_acta, monto, anio_expediente_titulo, fecha_proceso)
+                    VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
+                """, (str(id), tomo, folio, num_acta, monto, anio_expediente))
+
         conn.commit()
         session.pop('expediente_activo', None)
     except Exception as e:

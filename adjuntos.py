@@ -1,109 +1,186 @@
 import os
+import io
+import json
 import sqlite3
+import shutil
+from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from werkzeug.utils import secure_filename
+from PIL import Image
 
-# Blueprint independiente para el módulo de escaneo y adjuntos
+# Blueprint para el módulo de escaneo y adjuntos
 adjuntos_bp = Blueprint('adjuntos_bp', __name__)
 
-# Base de datos independiente para este módulo
-DB_ADJUNTOS = 'adjuntos_digitales.db'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, 'catatumbo.db')
+STORAGE_DIR = os.path.join(BASE_DIR, 'storage_pdf')
+UPLOADS_DIR = os.path.join(BASE_DIR, 'static', 'uploads')
+
+os.makedirs(STORAGE_DIR, exist_ok=True)
+os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 def get_adjuntos_db():
-    conn = sqlite3.connect(DB_ADJUNTOS)
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
-def inicializar_base_datos_adjuntos():
-    conn = get_adjuntos_db()
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS registros_adjuntos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            responsable TEXT NOT NULL,
-            nombre_solicitante TEXT,
-            apellido_solicitante TEXT,
-            nacionalidad TEXT,
-            cedula_solicitante TEXT,
-            tipo_documento TEXT,
-            num_acta TEXT,
-            anio TEXT,
-            tomo TEXT,
-            folio TEXT,
-            url_adjunto_copia TEXT,
-            fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    conn.commit()
-    conn.close()
+def procesar_archivo_a_pdf(file_storage, base_filename):
+    """
+    Guarda el archivo en storage_pdf y static/uploads.
+    Si el archivo es una imagen (JPG, PNG, WEBP, etc.), la convierte automáticamente a PDF.
+    Retorna el nombre final del archivo guardado (con extensión .pdf si era imagen).
+    """
+    root, ext = os.path.splitext(base_filename)
+    ext_lower = ext.lower()
+    
+    # Extensiones de imagen que convertiremos a PDF
+    image_exts = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.gif'}
+    
+    if ext_lower in image_exts:
+        nombre_final = f"{root}.pdf"
+        ruta_storage = os.path.join(STORAGE_DIR, nombre_final)
+        ruta_uploads = os.path.join(UPLOADS_DIR, nombre_final)
+        try:
+            image = Image.open(file_storage)
+            if image.mode in ("RGBA", "P"):
+                image = image.convert("RGB")
+            image.save(ruta_storage, format="PDF", resolution=150.0)
+            shutil.copy2(ruta_storage, ruta_uploads)
+            return nombre_final
+        except Exception as e:
+            print(f"Error al convertir imagen a PDF con Pillow: {e}")
+            file_storage.seek(0)
+            # Si falla la conversión, guardar como archivo original
+            ruta_orig_storage = os.path.join(STORAGE_DIR, base_filename)
+            ruta_orig_uploads = os.path.join(UPLOADS_DIR, base_filename)
+            file_storage.save(ruta_orig_storage)
+            try:
+                shutil.copy2(ruta_orig_storage, ruta_orig_uploads)
+            except Exception:
+                pass
+            return base_filename
+    else:
+        # Ya es PDF u otro formato
+        ruta_storage = os.path.join(STORAGE_DIR, base_filename)
+        ruta_uploads = os.path.join(UPLOADS_DIR, base_filename)
+        file_storage.save(ruta_storage)
+        try:
+            shutil.copy2(ruta_storage, ruta_uploads)
+        except Exception:
+            pass
+        return base_filename
 
-# Inicializar la tabla al cargar el módulo
-inicializar_base_datos_adjuntos()
-
-# --- VISTA PRINCIPAL ---
+# --- VISTA PRINCIPAL (Lee directamente de la tabla 'documentos') ---
 @adjuntos_bp.route('/adjuntos')
 def vista_adjuntos():
     if 'user' not in session:
         return redirect(url_for('login'))
         
     conn = get_adjuntos_db()
-    adjuntos = conn.execute(
-        "SELECT * FROM registros_adjuntos ORDER BY id DESC"
-    ).fetchall()
+    cursor = conn.execute("""
+        SELECT id, tipo_documento, fecha_ingreso, nombre_titular, 
+               nombre_masculino, nombre_femenino, numero_acta AS num_acta, 
+               anio_documento AS anio, tomo, folio, archivos
+        FROM documentos ORDER BY id DESC
+    """)
+    rows = cursor.fetchall()
     conn.close()
     
+    adjuntos = []
+    for r in rows:
+        d = dict(r)
+        try:
+            archivos_list = json.loads(d['archivos']) if d.get('archivos') else []
+        except Exception:
+            archivos_list = []
+        
+        primer_archivo = archivos_list[0] if archivos_list else None
+        if primer_archivo:
+            if primer_archivo.startswith('/static/'):
+                d['url_archivo'] = primer_archivo
+            elif '/' in primer_archivo:
+                d['url_archivo'] = '/' + primer_archivo.lstrip('/')
+            else:
+                d['url_archivo'] = url_for('ver_archivo', filename=primer_archivo)
+            d['primer_archivo'] = primer_archivo
+        else:
+            d['url_archivo'] = None
+            d['primer_archivo'] = None
+            
+        adjuntos.append(d)
+        
     return render_template('adjuntos.html', adjuntos=adjuntos)
 
-# --- RUTA: GUARDAR ADJUNTO ---
+# --- RUTA: GUARDAR ADJUNTO (Inserta en la tabla general 'documentos') ---
 @adjuntos_bp.route('/guardar-adjunto', methods=['POST'])
 def guardar_adjunto():
     if 'user' not in session:
         return redirect(url_for('login'))
     
-    # Validar campo obligatorio
-    responsable = request.form.get('responsable', '').strip()
-    if not responsable:
-        flash('❌ El nombre del responsable es obligatorio para registrar el documento.', 'danger')
-        return redirect(url_for('adjuntos_bp.vista_adjuntos'))
-    
-    nombre_solicitante = request.form.get('nombre_solicitante', '').strip()
-    apellido_solicitante = request.form.get('apellido_solicitante', '').strip()
-    nacionalidad = request.form.get('nacionalidad', 'V')
-    cedula_solicitante = request.form.get('cedula_solicitante', '').strip()
     tipo_documento = request.form.get('tipo_documento', '').strip()
-    num_acta = request.form.get('num_acta', '').strip()
-    anio = request.form.get('anio', '').strip()
+    if not tipo_documento:
+        flash('❌ Debe seleccionar un tipo de documento válido.', 'danger')
+        return redirect(url_for('adjuntos_bp.vista_adjuntos'))
+
+    numero_acta = request.form.get('numero_acta', '').strip()
     tomo = request.form.get('tomo', '').strip()
     folio = request.form.get('folio', '').strip()
-    
-    # Guardar archivo PDF o Imagen en servidor
-    archivo = request.files.get('url_adjunto_copia')
-    url_adjunto = None
-    
+    anio_documento = request.form.get('anio_documento', '').strip()
+
+    nombre_masculino = request.form.get('nombre_masculino', '').strip()
+    nombre_femenino = request.form.get('nombre_femenino', '').strip()
+    nombre_titular = request.form.get('nombre_titular', '').strip()
+    if not nombre_titular and (nombre_masculino or nombre_femenino):
+        nombre_titular = f"{nombre_masculino} / {nombre_femenino}".strip(' /')
+
+    sub_tipo_cementerio = request.form.get('sub_tipo_cementerio', '').strip()
+    fecha_acta = request.form.get('fecha_acta', '').strip()
+    fecha_gaceta = request.form.get('fecha_gaceta', '').strip()
+    numero_gaceta = request.form.get('numero_gaceta', '').strip()
+    fecha_documento = request.form.get('fecha_documento', '').strip()
+    numero_registro = request.form.get('numero_registro', '').strip()
+    fecha_ingreso_lab = request.form.get('fecha_ingreso_lab', '').strip()
+    fecha_egreso_lab = request.form.get('fecha_egreso_lab', '').strip()
+
+    # Manejar archivo PDF / captura
+    archivo = request.files.get('url_adjunto_copia') or request.files.get('archivo')
+    filename_guardado = None
+
     if archivo and archivo.filename != '':
-        filename = secure_filename(archivo.filename)
-        upload_folder = os.path.join('static', 'uploads')
-        os.makedirs(upload_folder, exist_ok=True)
-        
-        ruta_guardado = os.path.join(upload_folder, filename)
-        archivo.save(ruta_guardado)
-        url_adjunto = url_for('static', filename=f'uploads/{filename}')
+        raw_name = secure_filename(archivo.filename)
+        timestamp_prefix = datetime.now().strftime('%Y%m%d%H%M%S')
+        if not raw_name.startswith('documento_escaneado_') and not raw_name.startswith('202'):
+            base_filename = f"{timestamp_prefix}_{raw_name}"
+        else:
+            base_filename = raw_name
+
+        filename_guardado = procesar_archivo_a_pdf(archivo, base_filename)
+
+    archivos_json = json.dumps([filename_guardado]) if filename_guardado else '[]'
+    fecha_ingreso = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     try:
         conn = get_adjuntos_db()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO registros_adjuntos (
-                responsable, nombre_solicitante, apellido_solicitante, nacionalidad, 
-                cedula_solicitante, tipo_documento, num_acta, anio, 
-                tomo, folio, url_adjunto_copia
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO documentos (
+                tipo_documento, fecha_ingreso, archivos,
+                nombre_masculino, nombre_femenino, nombre_titular,
+                numero_acta, anio_documento, tomo, folio,
+                sub_tipo_cementerio, fecha_acta, fecha_gaceta, numero_gaceta,
+                fecha_documento, numero_registro, fecha_ingreso_lab, fecha_egreso_lab,
+                sincronizado
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
         """, (
-            responsable, nombre_solicitante, apellido_solicitante, nacionalidad,
-            cedula_solicitante, tipo_documento, num_acta, anio, tomo, folio, url_adjunto
+            tipo_documento, fecha_ingreso, archivos_json,
+            nombre_masculino, nombre_femenino, nombre_titular,
+            numero_acta, anio_documento, tomo, folio,
+            sub_tipo_cementerio, fecha_acta, fecha_gaceta, numero_gaceta,
+            fecha_documento, numero_registro, fecha_ingreso_lab, fecha_egreso_lab
         ))
         conn.commit()
         conn.close()
-        flash('✅ Archivo PDF y registro guardados exitosamente.', 'success')
+        flash('✅ Documento y archivo PDF guardados exitosamente en la base de datos.', 'success')
     except Exception as e:
         flash(f'❌ Error al guardar en la base de datos: {str(e)}', 'danger')
 
@@ -115,59 +192,43 @@ def actualizar_adjunto(id):
     if 'user' not in session:
         return redirect(url_for('login'))
 
-    responsable = request.form.get('responsable', '').strip()
-    if not responsable:
-        flash('❌ El nombre del responsable es obligatorio.', 'danger')
-        return redirect(url_for('adjuntos_bp.vista_adjuntos'))
-
-    nombre_solicitante = request.form.get('nombre_solicitante', '').strip()
-    apellido_solicitante = request.form.get('apellido_solicitante', '').strip()
-    nacionalidad = request.form.get('nacionalidad', 'V')
-    cedula_solicitante = request.form.get('cedula_solicitante', '').strip()
     tipo_documento = request.form.get('tipo_documento', '').strip()
-    num_acta = request.form.get('num_acta', '').strip()
-    anio = request.form.get('anio', '').strip()
+    numero_acta = request.form.get('numero_acta', '').strip()
     tomo = request.form.get('tomo', '').strip()
     folio = request.form.get('folio', '').strip()
+    anio_documento = request.form.get('anio_documento', '').strip()
+    nombre_titular = request.form.get('nombre_titular', '').strip()
 
-    archivo = request.files.get('url_adjunto_copia')
-    
+    archivo = request.files.get('url_adjunto_copia') or request.files.get('archivo')
+    filename_guardado = None
+
+    if archivo and archivo.filename != '':
+        raw_name = secure_filename(archivo.filename)
+        timestamp_prefix = datetime.now().strftime('%Y%m%d%H%M%S')
+        base_filename = f"{timestamp_prefix}_{raw_name}"
+        filename_guardado = procesar_archivo_a_pdf(archivo, base_filename)
+
     try:
         conn = get_adjuntos_db()
-        
-        if archivo and archivo.filename != '':
-            filename = secure_filename(archivo.filename)
-            upload_folder = os.path.join('static', 'uploads')
-            os.makedirs(upload_folder, exist_ok=True)
-            
-            ruta_guardado = os.path.join(upload_folder, filename)
-            archivo.save(ruta_guardado)
-            url_adjunto = url_for('static', filename=f'uploads/{filename}')
-
+        if filename_guardado:
+            archivos_json = json.dumps([filename_guardado])
             conn.execute("""
-                UPDATE registros_adjuntos SET
-                    responsable=?, nombre_solicitante=?, apellido_solicitante=?, nacionalidad=?,
-                    cedula_solicitante=?, tipo_documento=?, num_acta=?, anio=?,
-                    tomo=?, folio=?, url_adjunto_copia=?
+                UPDATE documentos SET
+                    tipo_documento=?, nombre_titular=?, numero_acta=?,
+                    anio_documento=?, tomo=?, folio=?, archivos=?
                 WHERE id=?
-            """, (
-                responsable, nombre_solicitante, apellido_solicitante, nacionalidad,
-                cedula_solicitante, tipo_documento, num_acta, anio, tomo, folio, url_adjunto, id
-            ))
+            """, (tipo_documento, nombre_titular, numero_acta, anio_documento, tomo, folio, archivos_json, id))
         else:
             conn.execute("""
-                UPDATE registros_adjuntos SET
-                    responsable=?, nombre_solicitante=?, apellido_solicitante=?, nacionalidad=?,
-                    cedula_solicitante=?, tipo_documento=?, num_acta=?, anio=?, tomo=?, folio=?
+                UPDATE documentos SET
+                    tipo_documento=?, nombre_titular=?, numero_acta=?,
+                    anio_documento=?, tomo=?, folio=?
                 WHERE id=?
-            """, (
-                responsable, nombre_solicitante, apellido_solicitante, nacionalidad,
-                cedula_solicitante, tipo_documento, num_acta, anio, tomo, folio, id
-            ))
+            """, (tipo_documento, nombre_titular, numero_acta, anio_documento, tomo, folio, id))
 
         conn.commit()
         conn.close()
-        flash(f'✅ Registro #{id} actualizado correctamente.', 'success')
+        flash(f'✅ Expediente #{id} actualizado correctamente.', 'success')
     except Exception as e:
         flash(f'❌ Error al actualizar registro: {str(e)}', 'danger')
 
@@ -178,22 +239,28 @@ def actualizar_adjunto(id):
 def eliminar_adjunto(id):
     if 'user' not in session:
         return redirect(url_for('login'))
-
     try:
         conn = get_adjuntos_db()
-        registro = conn.execute("SELECT url_adjunto_copia FROM registros_adjuntos WHERE id=?", (id,)).fetchone()
+        registro = conn.execute("SELECT archivos FROM documentos WHERE id=?", (id,)).fetchone()
+        if registro and registro['archivos']:
+            try:
+                archivos_list = json.loads(registro['archivos'])
+                for arc in archivos_list:
+                    # Limpiar de storage_pdf
+                    p1 = os.path.join(STORAGE_DIR, os.path.basename(arc))
+                    if os.path.exists(p1):
+                        os.remove(p1)
+                    # Limpiar de static/uploads
+                    p2 = os.path.join(UPLOADS_DIR, os.path.basename(arc))
+                    if os.path.exists(p2):
+                        os.remove(p2)
+            except Exception:
+                pass
 
-        if registro and registro['url_adjunto_copia']:
-            relative_path = registro['url_adjunto_copia'].lstrip('/')
-            if os.path.exists(relative_path):
-                os.remove(relative_path)
-
-        conn.execute("SELECT * FROM registros_adjuntos WHERE id=?", (id,))
-        conn.execute("DELETE FROM registros_adjuntos WHERE id=?", (id,))
+        conn.execute("DELETE FROM documentos WHERE id=?", (id,))
         conn.commit()
         conn.close()
-
-        flash(f'✅ Registro #{id} y su archivo fueron eliminados exitosamente.', 'success')
+        flash(f'✅ Expediente #{id} y sus archivos fueron eliminados exitosamente.', 'success')
     except Exception as e:
         flash(f'❌ Error al eliminar el registro: {str(e)}', 'danger')
 

@@ -1,32 +1,17 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <meta charset="UTF-8">
     <title>Cargar Expediente - Archivo Municipal de Maracaibo</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
-<body class="bg-light d-flex flex-column vh-100">
-    <nav class="navbar navbar-dark navbar-expand-lg shadow-sm py-3" style="background-color: #0f172a !important;">
-        <div class="container">
-            <a class="navbar-brand d-flex align-items-center fw-bold" href="/">
-                <img src="{{ url_for('static', filename='img/logo.png') }}" id="navLogo" alt="Logo" style="height: 38px;" class="me-2 rounded p-1 bg-white">
-                Archivo Municipal de Maracaibo
-            </a>
-            <div class="navbar-nav ms-auto align-items-center">
-                <a class="nav-link px-3 fw-semibold" href="/"><i class="bi bi-house-door me-1"></i> Inicio</a>
-                {% if session.rol != 'gestor' %}
-                    <a class="nav-link px-3 fw-semibold" href="/buscar"><i class="bi bi-search me-1"></i> Buscar</a>
-                {% endif %}
-                <a class="nav-link px-3 active fw-semibold" href="/subir"><i class="bi bi-cloud-arrow-up me-1"></i> Cargar</a>
-                {% if session.rol == 'master' %}
-                    <a class="nav-link text-warning fw-bold px-3" href="/usuarios"><i class="bi bi-shield-lock me-1"></i> Usuarios</a>
-                {% endif %}
-                <span class="text-light ms-3 small bg-secondary px-3 py-1 rounded-pill"><i class="bi bi-person-badge me-1"></i> {{ session.nombre }}</span>
-                <a class="btn btn-outline-light btn-sm ms-3" href="/logout"><i class="bi bi-power"></i> Salir</a>
-            </div>
-        </div>
-    </nav>
+<body class="bg-light d-flex flex-column min-vh-100">
+    {% include 'navbar.html' %}
     <div class="container mt-4 mb-5 flex-grow-1">
         <div class="bg-white p-5 rounded-4 shadow-sm border-top border-4 border-success">
             <div class="d-flex align-items-center mb-4">
@@ -63,10 +48,50 @@
                     <!-- Se inyectarán dinámicamente los campos específicos -->
                 </div>
 
+                <!-- DOS FORMAS DE CARGAR ARCHIVOS: MANUAL O DESDE DISPOSITIVOS/CÁMARA -->
                 <div class="card bg-light border-0 p-4 rounded-3 mb-4 shadow-sm">
-                    <label class="form-label fw-bold text-dark mb-2"><i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i>Archivos PDF Adjuntos (Máximo 12 archivos)</label>
-                    <input type="file" name="pdfs" id="pdfs" class="form-control" accept=".pdf" multiple required>
-                    <div class="form-text text-muted mt-1 small">Puede seleccionar múltiples archivos PDF presionando la tecla Ctrl o Cmd. Límite estricto: 12 archivos por expediente.</div>
+                    <label class="form-label fw-bold text-dark mb-3"><i class="bi bi-paperclip text-primary me-2"></i>Documentos Adjuntos al Expediente</label>
+                    
+                    <div class="row g-3">
+                        <!-- OPCIÓN 1: CARGA MANUAL DE ARCHIVO (PDF / IMAGEN) -->
+                        <div class="col-md-6">
+                            <div class="card h-100 border p-3 bg-white shadow-sm">
+                                <h6 class="fw-bold text-secondary mb-2"><i class="bi bi-folder2-open text-primary me-2"></i>1. Cargar Archivo Manual (PDF o Imagen)</h6>
+                                <p class="text-muted small mb-3">Seleccione archivos PDF ya existentes o imágenes desde su computadora o explorador de archivos.</p>
+                                <input type="file" name="pdfs" id="pdfs" class="form-control mb-2" accept=".pdf,image/*" multiple onchange="actualizarListaManual(this)">
+                                <div id="listaArchivosManuales" class="small text-muted"></div>
+                            </div>
+                        </div>
+
+                        <!-- OPCIÓN 2: DESDE DISPOSITIVOS / CÁMARA O TELÉFONO -->
+                        <div class="col-md-6">
+                            <div class="card h-100 border p-3 bg-white shadow-sm border-primary">
+                                <h6 class="fw-bold text-primary mb-2"><i class="bi bi-camera-fill text-primary me-2"></i>2. Capturar con Dispositivo / Cámara</h6>
+                                <p class="text-muted small mb-3">Tome fotos directamente usando la cámara del teléfono, webcam o escáner conectado en vivo.</p>
+                                
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button type="button" class="btn btn-outline-primary btn-sm flex-fill fw-bold" onclick="abrirCamaraEnVivoSubir()">
+                                        <i class="bi bi-webcam-fill me-1"></i> Abrir Cámara Web / Escáner
+                                    </button>
+                                    <label class="btn btn-outline-success btn-sm flex-fill fw-bold mb-0">
+                                        <i class="bi bi-phone-fill me-1"></i> Cámara Móvil / Teléfono
+                                        <input type="file" accept="image/*" capture="environment" class="d-none" onchange="capturarFotoMovilSubir(this)">
+                                    </label>
+                                </div>
+
+                                <div id="contenedorCapturasSubir" class="mt-3 d-none">
+                                    <div class="d-flex align-items-center justify-content-between p-2 rounded bg-success-subtle text-success border border-success mb-2">
+                                        <small class="fw-bold"><i class="bi bi-check2-circle me-1"></i> Documento escaneado listo como PDF</small>
+                                        <button type="button" class="btn-close btn-sm" onclick="limpiarCapturaSubir()"></button>
+                                    </div>
+                                    <div id="nombreCapturaSubir" class="small text-muted fst-italic"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <input type="file" name="pdfs" id="inputPdfEscaneadoSubir" class="d-none" accept=".pdf">
+                    <div class="form-text text-muted mt-2 small"><i class="bi bi-info-circle me-1"></i>Puede adjuntar documentos con cualquiera de las dos formas (o ambas combinadas).</div>
                 </div>
 
                 <div class="d-flex justify-content-end gap-2">
@@ -76,10 +101,7 @@
             </form>
         </div>
     </div>
-    <footer class="text-center py-3 bg-white border-top text-muted small mt-auto">
-        <p class="mb-1 fw-semibold text-secondary" style="font-size: 0.8rem;">Creado Concejo Municipal Bolivariano de Maracaibo &copy; 2026 - Toda la Gloria es para Dios</p>
-    </footer>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
         document.getElementById('navLogo').addEventListener('error', function() {
             this.outerHTML = '<i class="bi bi-bank fs-4 text-warning me-2"></i>';
@@ -236,6 +258,228 @@
             if (pdfInput.files.length > 12) {
                 alert('Error: Puede adjuntar un máximo de 12 archivos PDF por expediente.');
                 e.preventDefault();
+            }
+        });
+    </script>
+
+    <footer class="text-center py-3 bg-white border-top text-muted small mt-auto no-print">
+        <p class="mb-1 fw-semibold text-secondary" style="font-size: 0.8rem;">Creado Concejo Municipal Bolivariano de Maracaibo &copy; 2026 - Toda la Gloria es para Dios</p>
+        <p class="mb-0 fst-italic text-dark" style="font-size: 0.75rem;">"{{ versiculo_texto }}" — <strong>{{ versiculo_ref }}</strong></p>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Modal para Cámara en Vivo en Subir -->
+    <div class="modal fade" id="modalCamaraSubir" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0">
+                <div class="modal-header bg-dark text-white py-2">
+                    <h5 class="modal-title fs-6"><i class="bi bi-camera-video-fill me-2 text-warning"></i>Cámara / Escáner en Vivo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="detenerCamaraSubir()"></button>
+                </div>
+                <div class="modal-body bg-light text-center p-3">
+                    <div class="row g-2 mb-2">
+                        <div class="col-8">
+                            <select id="selectCamarasSubir" class="form-select form-select-sm" onchange="cambiarCamaraSubir()">
+                                <option value="">Detectando cámaras...</option>
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <button type="button" class="btn btn-sm btn-outline-secondary w-100" onclick="alternarCamaraSubir()">
+                                <i class="bi bi-arrow-repeat me-1"></i> Cambiar
+                            </button>
+                        </div>
+                    </div>
+                    <div style="position: relative; width: 100%; height: 380px; background: #000; border-radius: 8px; overflow: hidden;" class="d-flex align-items-center justify-content-center">
+                        <video id="videoCamaraSubir" autoplay playsinline style="max-width: 100%; max-height: 100%; object-fit: contain;"></video>
+                        <canvas id="canvasCapturaSubir" class="d-none"></canvas>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2 justify-content-between">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal" onclick="detenerCamaraSubir()">Cancelar</button>
+                    <button type="button" class="btn btn-danger btn-sm px-4 fw-bold shadow-sm" onclick="tomarFotoSubir()">
+                        <i class="bi bi-record-circle me-1"></i> Capturar Fotografía
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let streamSubir = null;
+        let dispositivosCamarasSubir = [];
+        let camaraIndexSubir = 0;
+        let modoTraseroSubir = true;
+
+        function actualizarListaManual(input) {
+            const lista = document.getElementById('listaArchivosManuales');
+            if (input.files.length > 0) {
+                lista.innerHTML = `<strong>${input.files.length}</strong> archivo(s) seleccionado(s).`;
+            } else {
+                lista.innerHTML = '';
+            }
+        }
+
+        async function abrirCamaraEnVivoSubir() {
+            const modalEl = document.getElementById('modalCamaraSubir');
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+            await listarYIniciarCamarasSubir();
+        }
+
+        async function listarYIniciarCamarasSubir() {
+            try {
+                if (streamSubir) detenerCamaraSubir();
+                const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                tempStream.getTracks().forEach(t => t.stop());
+
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                dispositivosCamarasSubir = devices.filter(d => d.kind === 'videoinput');
+                const select = document.getElementById('selectCamarasSubir');
+                select.innerHTML = '';
+
+                dispositivosCamarasSubir.forEach((dev, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = dev.deviceId;
+                    opt.text = dev.label || `Cámara ${idx + 1}`;
+                    select.appendChild(opt);
+                });
+
+                if (dispositivosCamarasSubir.length > 0) {
+                    await iniciarStreamConDispositivoSubir(dispositivosCamarasSubir[0].deviceId);
+                } else {
+                    await iniciarStreamModoSubir({ facingMode: 'environment' });
+                }
+            } catch (err) {
+                console.warn('Error enumerando cámaras, fallback genérico:', err);
+                await iniciarStreamModoSubir({ facingMode: 'environment' });
+            }
+        }
+
+        async function iniciarStreamConDispositivoSubir(deviceId) {
+            if (streamSubir) streamSubir.getTracks().forEach(t => t.stop());
+            try {
+                streamSubir = await navigator.mediaDevices.getUserMedia({
+                    video: { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+                    audio: false
+                });
+                const video = document.getElementById('videoCamaraSubir');
+                video.srcObject = streamSubir;
+                video.play();
+            } catch (err) {
+                console.error('Error accediendo a cámara por deviceId:', err);
+            }
+        }
+
+        async function iniciarStreamModoSubir(constraints) {
+            if (streamSubir) streamSubir.getTracks().forEach(t => t.stop());
+            try {
+                streamSubir = await navigator.mediaDevices.getUserMedia({
+                    video: constraints,
+                    audio: false
+                });
+                const video = document.getElementById('videoCamaraSubir');
+                video.srcObject = streamSubir;
+                video.play();
+            } catch (err) {
+                alert('No se pudo acceder a la cámara o dispositivo. Verifique los permisos.');
+            }
+        }
+
+        async function cambiarCamaraSubir() {
+            const select = document.getElementById('selectCamarasSubir');
+            if (select.value) {
+                await iniciarStreamConDispositivoSubir(select.value);
+            }
+        }
+
+        async function alternarCamaraSubir() {
+            if (dispositivosCamarasSubir.length > 1) {
+                camaraIndexSubir = (camaraIndexSubir + 1) % dispositivosCamarasSubir.length;
+                const nextDev = dispositivosCamarasSubir[camaraIndexSubir];
+                document.getElementById('selectCamarasSubir').value = nextDev.deviceId;
+                await iniciarStreamConDispositivoSubir(nextDev.deviceId);
+            } else {
+                modoTraseroSubir = !modoTraseroSubir;
+                await iniciarStreamModoSubir({ facingMode: modoTraseroSubir ? 'environment' : 'user' });
+            }
+        }
+
+        function detenerCamaraSubir() {
+            if (streamSubir) {
+                streamSubir.getTracks().forEach(t => t.stop());
+                streamSubir = null;
+            }
+        }
+
+        async function tomarFotoSubir() {
+            const video = document.getElementById('videoCamaraSubir');
+            const canvas = document.getElementById('canvasCapturaSubir');
+            if (!video.videoWidth) {
+                alert('Cámara aún no lista. Espere un segundo.');
+                return;
+            }
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            detenerCamaraSubir();
+            bootstrap.Modal.getInstance(document.getElementById('modalCamaraSubir')).hide();
+            await convertirImagenAPdfYAsignarSubir(imgData);
+        }
+
+        function capturarFotoMovilSubir(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    await convertirImagenAPdfYAsignarSubir(e.target.result);
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        async function convertirImagenAPdfYAsignarSubir(dataUrl) {
+            try {
+                const { jsPDF } = window.jspdf;
+                const img = new Image();
+                img.src = dataUrl;
+                img.onload = function() {
+                    const doc = new jsPDF({
+                        orientation: img.width > img.height ? 'l' : 'p',
+                        unit: 'px',
+                        format: [img.width, img.height]
+                    });
+                    doc.addImage(img, 'JPEG', 0, 0, img.width, img.height);
+                    const pdfBlob = doc.output('blob');
+                    const fileName = `dispositivo_${Date.now()}.pdf`;
+                    const fileObj = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+                    const dt = new DataTransfer();
+                    dt.items.add(fileObj);
+                    const inputTarget = document.getElementById('inputPdfEscaneadoSubir');
+                    inputTarget.files = dt.files;
+
+                    document.getElementById('contenedorCapturasSubir').classList.remove('d-none');
+                    document.getElementById('nombreCapturaSubir').textContent = `Archivo generado: ${fileName}`;
+                };
+            } catch (e) {
+                alert('Error al generar PDF de la imagen capturada: ' + e.message);
+            }
+        }
+
+        function limpiarCapturaSubir() {
+            document.getElementById('inputPdfEscaneadoSubir').value = '';
+            document.getElementById('contenedorCapturasSubir').classList.add('d-none');
+        }
+
+        // Validación al enviar el formulario
+        document.getElementById('formCarga').addEventListener('submit', function(e) {
+            const manualFiles = document.getElementById('pdfs').files;
+            const deviceFiles = document.getElementById('inputPdfEscaneadoSubir').files;
+            if (manualFiles.length === 0 && deviceFiles.length === 0) {
+                alert('Por favor adjunte al menos un archivo mediante Carga Manual o Captura desde Dispositivo / Cámara.');
+                e.preventDefault();
+                return false;
             }
         });
     </script>

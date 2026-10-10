@@ -59,23 +59,9 @@
         }
     </style>
 </head>
-<body class="bg-light d-flex flex-column vh-100">
+<body class="bg-light d-flex flex-column min-vh-100">
 
-    <nav class="navbar navbar-dark navbar-expand-lg shadow-sm py-3 no-print" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
-        <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center fw-bold text-white" href="#">
-                <span class="badge bg-primary bg-opacity-25 text-info border border-info border-opacity-25 p-2 rounded-3 me-2">🏛️</span> 
-                Concejo Municipal Bolivariano de Maracaibo
-            </a>
-            <div class="navbar-nav ms-auto align-items-center">
-                <a class="nav-link px-3 fw-semibold text-white" href="/"><i class="bi bi-house-door me-1"></i> Búsqueda</a>
-                <a class="nav-link px-3 fw-semibold text-white" href="/solicitudes"><i class="bi bi-inbox-fill me-1"></i> Solicitudes</a>
-                <a class="nav-link px-3 fw-semibold text-warning" href="{{ url_for('solicitudes_bp.ver_papelera') }}"><i class="bi bi-trash-fill me-1"></i> Papelera</a>
-                <a class="nav-link px-3 active fw-semibold text-info" href="{{ url_for('solicitudes_bp.estadisticas_trimestrales') }}"><i class="bi bi-bar-chart-fill me-1"></i> Estadísticas</a>
-                <a class="btn btn-outline-light btn-sm ms-3 rounded-pill px-3" href="/logout"><i class="bi bi-power"></i> Salir</a>
-            </div>
-        </div>
-    </nav>
+    {% include 'navbar.html' %}
 
     <div class="container-fluid mt-3 mb-3 flex-grow-1 px-4">
         

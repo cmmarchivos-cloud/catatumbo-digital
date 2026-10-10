@@ -1,0 +1,135 @@
+ * Serving Flask app 'app'
+ * Debug mode: on
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.88.141.211:5000
+[33mPress CTRL+C to quit[0m
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 831-422-133
+127.0.0.1 - - [10/Oct/2026 17:29:50] "HEAD /login HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:30:03] "GET /adjuntos HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:30:03] "GET /static/img/logo.png HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:30:04] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+127.0.0.1 - - [10/Oct/2026 17:30:08] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:30:08] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:30:09] "[32mGET /logout HTTP/1.1[0m" 302 -
+127.0.0.1 - - [10/Oct/2026 17:30:09] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:30:09] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:30:18] "[32mPOST /login HTTP/1.1[0m" 302 -
+127.0.0.1 - - [10/Oct/2026 17:30:18] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:30:18] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:30:25] "GET /buscar HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:30:25] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:30:31] "GET /documento/1 HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:30:31] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:30:35] "[36mGET /ver/20261009144622_EXPEDIENTES_DE_MATRIMONIO.docx_-_Documentos_de_Google.pdf HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:30:41] "GET /buscar HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:30:41] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:30:44] "GET /documento/1 HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:30:44] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:30:48] "GET /buscar HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:30:49] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:30:50] "GET /imprimir/1 HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:30:50] "[36mGET /static/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:30:50] "[36mGET /ver/20261009144622_EXPEDIENTES_DE_MATRIMONIO.docx_-_Documentos_de_Google.pdf HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:30:50] "[36mGET /ver/20261009144622_EXPEDIENTES_DE_MATRIMONIO.docx_-_Documentos_de_Google.pdf HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:30:59] "GET /documento/1 HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:30:59] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:01] "GET /buscar HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:01] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:04] "GET /imprimir/3 HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:04] "GET /ver/documento_escaneado_1791575184575.pdf HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:04] "[36mGET /static/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:04] "GET /ver/documento_escaneado_1791575184575.pdf HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:19] "GET /documento/3 HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:19] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:21] "GET /solicitudes HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:21] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:23] "GET /solicitudes/historial-op HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:23] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:27] "GET /solicitudes/estadisticas HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:28] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:30] "GET /solicitudes HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:30] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:37] "GET /solicitudes/historial-op HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:37] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:40] "GET /buscar HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:40] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:43] "GET /solicitudes HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:43] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:45] "GET /solicitudes/historial-op HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:45] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:48] "GET /solicitudes/estadisticas HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:48] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:50] "GET /solicitudes/papelera HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:50] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:52] "GET /solicitudes/historial-op/papelera HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:52] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:55] "GET /solicitudes/papelera HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:55] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:31:58] "GET /adjuntos HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:31:58] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:32:33] "[32mPOST /guardar-adjunto HTTP/1.1[0m" 302 -
+127.0.0.1 - - [10/Oct/2026 17:32:33] "GET /adjuntos HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:32:34] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:32:36] "GET /ver/documento_escaneado_1791667949214.pdf HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:32:46] "GET /subir HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:32:46] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:33:06] "GET /usuarios HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:33:06] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:33:09] "GET /sistema HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:33:09] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:33:10] "GET /base_datos HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:33:10] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:33:14] "GET /solicitudes/historial-op HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:33:14] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:45:01] "GET /solicitudes/historial-op HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:45:01] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:45:17] "GET /solicitudes/estadisticas HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:45:17] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:45:31] "GET /adjuntos HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:45:31] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:45:32] "GET /subir HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:45:32] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:45:34] "GET /usuarios HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:45:34] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:45:35] "GET /sistema HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:45:35] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:45:36] "GET /base_datos HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:45:36] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:45:38] "GET /adjuntos HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:45:38] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:45:45] "GET /solicitudes/papelera HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:45:45] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:45:50] "GET /solicitudes HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:45:50] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:45:52] "GET /solicitudes/historial-op HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:45:52] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:46:25] "GET /buscar HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:46:25] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:46:27] "GET /subir HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:46:27] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:46:29] "GET /adjuntos HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:46:29] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:46:34] "GET /adjuntos HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:46:34] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:46:39] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:46:39] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:46:40] "GET /buscar HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:46:40] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:46:41] "GET /buscar HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:46:41] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:46:43] "GET /solicitudes HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:46:43] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:46:44] "GET /solicitudes/historial-op HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:46:44] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:46:46] "GET /solicitudes/estadisticas HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:46:46] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:46:47] "GET /solicitudes/papelera HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:46:47] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+127.0.0.1 - - [10/Oct/2026 17:46:48] "GET /solicitudes/historial-op/papelera HTTP/1.1" 200 -
+127.0.0.1 - - [10/Oct/2026 17:46:48] "[36mGET /static/img/logo.png HTTP/1.1[0m" 304 -
+/usr/lib/python3.14/multiprocessing/resource_tracker.py:396: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown: {'/mp-r1jqs9l7'}
+  warnings.warn(

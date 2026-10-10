@@ -8,33 +8,23 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 </head>
-<body class="bg-light d-flex flex-column vh-100">
+<body class="bg-light d-flex flex-column min-vh-100">
 
-    <nav class="navbar navbar-dark navbar-expand-lg shadow-sm py-3" style="background-color: #0f172a !important;">
-        <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center fw-bold text-white" href="#">
-                🏛️ Concejo Municipal Bolivariano de Maracaibo
-            </a>
-            <div class="navbar-nav ms-auto align-items-center">
-                <a class="nav-link px-3 fw-semibold text-white" href="/"><i class="bi bi-house-door me-1"></i> Búsqueda</a>
-                <a class="nav-link px-3 active fw-semibold text-warning" href="/solicitudes"><i class="bi bi-inbox-fill me-1"></i> Solicitudes</a>
-                <a class="nav-link px-3 fw-semibold text-white" href="{{ url_for('solicitudes_bp.ver_papelera') }}"><i class="bi bi-trash-fill me-1"></i> Papelera</a>
-                <a class="nav-link px-3 fw-semibold text-info" href="{{ url_for('solicitudes_bp.estadisticas_trimestrales') }}"><i class="bi bi-bar-chart-fill me-1"></i> Estadísticas Trimestrales</a>
-                <a class="nav-link px-3 fw-semibold text-success" href="{{ url_for('solicitudes_bp.ver_historial_op') }}"><i class="bi bi-clock-history me-1"></i> Historial OP</a>
-                <a class="btn btn-outline-light btn-sm ms-3" href="/logout"><i class="bi bi-power"></i> Salir</a>
-            </div>
-        </div>
-    </nav>
+    {% include 'navbar.html' %}
 
     <div class="container-fluid mt-4 mb-5 flex-grow-1 px-4">
         
-        <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded-3 shadow-sm border">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4 bg-white p-3 rounded-3 shadow-sm border">
             <div>
                 <h3 class="fw-bold text-dark mb-1"><i class="bi bi-envelope-paper text-primary me-2"></i>Control de Solicitudes y Trámites</h3>
                 <p class="text-muted small mb-0">Visualiza los datos de Google Forms, realiza la búsqueda física y procesa los envíos con QR.</p>
             </div>
-            <div>
-                <a href="{{ url_for('solicitudes_bp.sincronizar_todas') }}" class="btn btn-primary fw-bold shadow-sm">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <a href="/solicitudes" class="btn btn-sm btn-warning fw-bold shadow-sm"><i class="bi bi-inbox-fill me-1"></i> Solicitudes Activas</a>
+                <a href="{{ url_for('solicitudes_bp.ver_historial_op') }}" class="btn btn-sm btn-outline-success fw-semibold"><i class="bi bi-clock-history me-1"></i> Historial OP</a>
+                <a href="{{ url_for('solicitudes_bp.estadisticas_trimestrales') }}" class="btn btn-sm btn-outline-info fw-semibold"><i class="bi bi-bar-chart-fill me-1"></i> Estadísticas</a>
+                <a href="{{ url_for('solicitudes_bp.ver_papelera') }}" class="btn btn-sm btn-outline-danger fw-semibold"><i class="bi bi-trash-fill me-1"></i> Papelera</a>
+                <a href="{{ url_for('solicitudes_bp.sincronizar_todas') }}" class="btn btn-sm btn-primary fw-bold shadow-sm ms-lg-2">
                     <i class="bi bi-arrow-repeat me-1"></i> Sincronizar Google Sheets
                 </a>
             </div>
@@ -296,6 +286,11 @@
     </div>
     {% endfor %}
 
+    
+    <footer class="text-center py-3 bg-white border-top text-muted small mt-auto no-print">
+        <p class="mb-1 fw-semibold text-secondary" style="font-size: 0.8rem;">Creado Concejo Municipal Bolivariano de Maracaibo &copy; 2026 - Toda la Gloria es para Dios</p>
+        <p class="mb-0 fst-italic text-dark" style="font-size: 0.75rem;">"{{ versiculo_texto }}" — <strong>{{ versiculo_ref }}</strong></p>
+    </footer>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
