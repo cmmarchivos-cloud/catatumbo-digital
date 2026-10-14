@@ -12,7 +12,8 @@ from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, Response
+import cierre_periodo
 from werkzeug.utils import secure_filename
 
 from base_datos import get_db
@@ -170,7 +171,8 @@ def procesar_y_guardar(id):
 
         monto_str = f"Bs. {monto}" if monto and "Bs" not in monto else (monto or "Por verificar en taquilla")
 
-        texto_qr = (f"🏛️ CMBM - ARCHIVO MUNICIPAL\n"
+        texto_qr = (f"🏛️ Concejo Municipal Bolivariano de Maracaibo\n"
+                    f"Archivo Municipal\n"
                     f"SOLICITANTE: {nombre} {apellido}\n"
                     f"ID: {id_full}\n"
                     f"DOCUMENTO: {tipo_doc}\n"
@@ -185,8 +187,8 @@ def procesar_y_guardar(id):
           <div style="max-width: 550px; margin: auto; background-color: #ffffff; border-radius: 6px; overflow: hidden; border: 1px solid #e1e8ed;">
             
             <div style="background: linear-gradient(135deg, #03254c 0%, #064b99 100%); color: white; padding: 12px; text-align: center;">
-              <div style="font-size: 16px; font-weight: 800; letter-spacing: 1px;">ARCHIVO MUNICIPAL</div>
-              <div style="font-size: 9px; text-transform: uppercase; opacity: 0.9; letter-spacing: 1px;">Concejo Municipal Bolivariano de Maracaibo</div>
+              <div style="font-size: 14px; font-weight: 800; letter-spacing: 1px; margin-bottom: 3px;">Concejo Municipal Bolivariano de Maracaibo</div>
+              <div style="font-size: 11px; text-transform: uppercase; opacity: 0.95; letter-spacing: 1px;">Archivo Municipal</div>
             </div>
 
             <div style="padding: 15px; line-height: 1.3;">
@@ -207,7 +209,7 @@ def procesar_y_guardar(id):
               <div style="border-left: 3px solid #f6ad55; background-color: #fffaf0; padding: 10px; border-radius: 0 6px 6px 0; margin-bottom: 10px; font-size: 11px;">
                 <div style="color: #9c4221; font-weight: bold; margin-bottom: 4px;">📍 PASOS OBLIGATORIOS PARA RETIRAR:</div>
                 <ul style="margin: 0; padding-left: 15px; color: #744210; line-height: 1.3;">
-                  <li style="margin-bottom: 3px;">Asistir a <b>SEDEMAT</b> (Sedes de Atencion y Tramites "Valle Frio , Alcaldia de Maraciabo,Costa Verde,Plaza de Toros,Curva de Molina,Vereda del Lago , CC.Lago.Mall ").</li>
+                  <li style="margin-bottom: 3px;">Asistir a <b>SEDEMAT</b> (Sedes de Atencion y Tramites "Valle Frio , Alcaldía de Maracaibo,Costa Verde,Plaza de Toros,Curva de Molina,Vereda del Lago , CC.Lago.Mall ").</li>
                   <li style="margin-bottom: 3px;">Realizar el pago de aranceles municipales correspondientes.</li>
                   <li>Presentar el pago del SEDEMAT en el 3er piso del Palacio Municipal "Archivo General Municipal"para la certificación del documento y su posterior retiro (3 días hábiles).</li>
                 </ul>
@@ -571,6 +573,242 @@ def estadisticas_trimestrales():
 
     return render_template('estadisticas.html', estadisticas=estadisticas_lista)
 
+# --- MÓDULO DE CIERRE DE PERÍODO (CORTE TRIMESTRAL Y CIERRE ANUAL) ---
+@solicitudes_bp.route('/solicitudes/cierre-periodo')
+def vista_cierre_periodo():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    tipo = request.args.get('tipo', 'TRIMESTRAL').upper()
+    if tipo not in ['TRIMESTRAL', 'ANUAL']:
+        tipo = 'TRIMESTRAL'
+
+    anio_actual = datetime.now().year
+    mes_actual = datetime.now().month
+    trimestre_actual = (mes_actual - 1) // 3 + 1
+
+    try:
+        anio = int(request.args.get('anio', str(anio_actual)))
+    except Exception:
+        anio = anio_actual
+
+    try:
+        trimestre = int(request.args.get('trimestre', str(trimestre_actual))) if tipo == 'TRIMESTRAL' else None
+    except Exception:
+        trimestre = trimestre_actual
+
+    conn = get_db()
+    cierre_periodo.inicializar_tabla_cierres(conn)
+    anios_disponibles = cierre_periodo.obtener_anios_disponibles(conn)
+    if anio not in anios_disponibles:
+        anios_disponibles.insert(0, anio)
+
+    datos = cierre_periodo.obtener_datos_periodo(conn, tipo=tipo, anio=anio, trimestre=trimestre)
+    historial = cierre_periodo.obtener_historial_cierres(conn)
+    conn.close()
+
+    return render_template(
+        'cierre_periodo.html',
+        tipo=tipo,
+        anio=anio,
+        trimestre=trimestre,
+        anios_disponibles=anios_disponibles,
+        datos=datos,
+        historial=historial
+    )
+
+@solicitudes_bp.route('/solicitudes/cierre-periodo/ejecutar', methods=['POST'])
+def ejecutar_cierre():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    tipo = request.form.get('tipo', 'TRIMESTRAL').upper()
+    try:
+        anio = int(request.form.get('anio', datetime.now().year))
+    except Exception:
+        anio = datetime.now().year
+
+    trimestre = None
+    if tipo == 'TRIMESTRAL':
+        try:
+            trimestre = int(request.form.get('trimestre', 1))
+        except Exception:
+            trimestre = 1
+
+    observaciones = request.form.get('observaciones', '').strip()
+    usuario = session.get('nombre') or session.get('user', 'ADMIN')
+
+    conn = get_db()
+    try:
+        codigo_cierre, cierre_id = cierre_periodo.ejecutar_cierre_formal(
+            conn=conn,
+            tipo=tipo,
+            anio=anio,
+            trimestre=trimestre,
+            usuario=usuario,
+            observaciones=observaciones
+        )
+        flash(f'🏛️ Cierre formal [{codigo_cierre}] asentado y certificado exitosamente en el Archivo Municipal.', 'success')
+        return redirect(url_for('solicitudes_bp.ver_informe_cierre', codigo_cierre=codigo_cierre))
+    except Exception as e:
+        flash(f'❌ Error al ejecutar el cierre de período: {str(e)}', 'danger')
+        return redirect(url_for('solicitudes_bp.vista_cierre_periodo', tipo=tipo, anio=anio, trimestre=trimestre))
+    finally:
+        conn.close()
+
+@solicitudes_bp.route('/solicitudes/cierre-periodo/informe')
+def ver_informe_cierre_previa():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    tipo = request.args.get('tipo', 'TRIMESTRAL').upper()
+    try:
+        anio = int(request.args.get('anio', datetime.now().year))
+    except Exception:
+        anio = datetime.now().year
+
+    trimestre = None
+    if tipo == 'TRIMESTRAL':
+        try:
+            trimestre = int(request.args.get('trimestre', (datetime.now().month - 1) // 3 + 1))
+        except Exception:
+            trimestre = 1
+
+    conn = get_db()
+    datos = cierre_periodo.obtener_datos_periodo(conn, tipo=tipo, anio=anio, trimestre=trimestre)
+    conn.close()
+
+    informe = {
+        'es_historico': False,
+        'codigo_cierre': f"PREV-{'T' + str(trimestre) if tipo == 'TRIMESTRAL' else 'ANUAL'}-{anio}",
+        'tipo_cierre': tipo,
+        'anio': anio,
+        'trimestre': trimestre,
+        'periodo_nombre': datos['rango']['periodo_nombre'],
+        'fecha_inicio': datos['rango']['fecha_inicio_str'],
+        'fecha_fin': datos['rango']['fecha_fin_str'],
+        'fecha_cierre': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'usuario': session.get('nombre') or session.get('user', 'ADMIN'),
+        'observaciones': 'Vista previa preliminar de auditoría institucional.',
+        'estadisticas': {
+            'rango': datos['rango'],
+            'totales': datos['totales'],
+            'desglose_tipos': datos['desglose_tipos'],
+            'desglose_temporal': datos['desglose_temporal'],
+            'solicitudes_procesadas': datos['solicitudes_procesadas']
+        }
+    }
+
+    return render_template('informe_cierre.html', informe=informe)
+
+@solicitudes_bp.route('/solicitudes/cierre-periodo/informe/<string:codigo_cierre>')
+def ver_informe_cierre(codigo_cierre):
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    conn = get_db()
+    cierre = cierre_periodo.obtener_cierre_por_codigo(conn, codigo_cierre)
+    conn.close()
+
+    if not cierre:
+        flash(f'❌ No se encontró ningún cierre oficial con el código: {codigo_cierre}', 'warning')
+        return redirect(url_for('solicitudes_bp.vista_cierre_periodo'))
+
+    informe = {
+        'es_historico': True,
+        'id': cierre['id'],
+        'codigo_cierre': cierre['codigo_cierre'],
+        'tipo_cierre': cierre['tipo_cierre'],
+        'anio': cierre['anio'],
+        'trimestre': cierre['trimestre'],
+        'periodo_nombre': cierre['periodo_nombre'],
+        'fecha_inicio': cierre['fecha_inicio'],
+        'fecha_fin': cierre['fecha_fin'],
+        'fecha_cierre': cierre['fecha_cierre'],
+        'usuario': cierre['usuario'],
+        'observaciones': cierre.get('observaciones') or '',
+        'estado': cierre.get('estado', 'CERRADO'),
+        'estadisticas': cierre.get('estadisticas', {})
+    }
+
+    return render_template('informe_cierre.html', informe=informe)
+
+@solicitudes_bp.route('/solicitudes/cierre-periodo/anular/<int:cierre_id>', methods=['POST'])
+def anular_cierre_periodo(cierre_id):
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    rol = session.get('rol', '')
+    if rol not in ['master', 'supervisor', 'admin']:
+        flash('⛔ No tiene los permisos requeridos para anular un cierre oficial de período.', 'danger')
+        return redirect(url_for('solicitudes_bp.vista_cierre_periodo'))
+
+    conn = get_db()
+    cierre_periodo.anular_cierre(conn, cierre_id)
+    conn.close()
+
+    flash(f'⚠️ El cierre oficial N° #{cierre_id} ha sido anulado. Las solicitudes asociadas fueron liberadas.', 'info')
+    return redirect(url_for('solicitudes_bp.vista_cierre_periodo'))
+
+@solicitudes_bp.route('/solicitudes/cierre-periodo/exportar-csv')
+def exportar_csv_cierre():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    codigo_cierre = request.args.get('codigo_cierre')
+    conn = get_db()
+
+    if codigo_cierre:
+        cierre = cierre_periodo.obtener_cierre_por_codigo(conn, codigo_cierre)
+        if cierre and 'estadisticas' in cierre:
+            solicitudes = cierre['estadisticas'].get('solicitudes_procesadas', [])
+            periodo_txt = cierre['codigo_cierre']
+        else:
+            solicitudes = []
+            periodo_txt = "cierre"
+    else:
+        tipo = request.args.get('tipo', 'TRIMESTRAL').upper()
+        try:
+            anio = int(request.args.get('anio', datetime.now().year))
+        except Exception:
+            anio = datetime.now().year
+        try:
+            trimestre = int(request.args.get('trimestre', 4))
+        except Exception:
+            trimestre = 4
+        datos = cierre_periodo.obtener_datos_periodo(conn, tipo=tipo, anio=anio, trimestre=trimestre)
+        solicitudes = datos['solicitudes_procesadas']
+        periodo_txt = f"{tipo}_{anio}" + (f"_T{trimestre}" if tipo == 'TRIMESTRAL' else "")
+
+    conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=';')
+    writer.writerow(['OP/ID', 'CÉDULA', 'SOLICITANTE', 'TIPO DOCUMENTO', 'FECHA SOLICITUD', 'FECHA PROCESO', 'UBICACIÓN ARCHIVO', 'MONTO BS', 'CÓDIGO SEGURIDAD'])
+
+    for s in solicitudes:
+        writer.writerow([
+            s.get('op') or s.get('id'),
+            s.get('cedula', ''),
+            s.get('solicitante', ''),
+            s.get('tipo_documento', ''),
+            s.get('fecha_solicitud', ''),
+            s.get('fecha_proceso', ''),
+            s.get('ubicacion', ''),
+            f"{s.get('monto', 0.0):.2f}",
+            s.get('codigo_seguridad', '')
+        ])
+
+    csv_data = '﻿' + output.getvalue()
+    filename = f"cierre_solicitudes_{periodo_txt}.csv"
+
+    return Response(
+        csv_data,
+        mimetype='text/csv; charset=utf-8',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )
+
+
 @solicitudes_bp.route('/solicitudes/sincronizar', methods=['POST', 'GET'])
 def sincronizar_todas():
     if 'user' not in session:
@@ -608,7 +846,7 @@ def sincronizar_todas():
                 continue
 
             for row in reader:
-                if not row or len(row) < 5:
+                if not row or len(row) < 5 or not any(field.strip() for field in row):
                     continue
                 
                 total_cols = len(row)
@@ -620,11 +858,26 @@ def sincronizar_todas():
                 nacionalidad = row[5] if total_cols > 5 else "V"
                 correo_solicitante = row[6] if total_cols > 6 else correo_google
 
-                parentesco, tipo_documento, numero_copias, anio_expediente_titulo, fecha_acta, nombre_titular, contrayente_masculino, contrayente_femenino, datos_expediente, url_adjunto_copia = "", nombre_pestana, "", "", "", "", "", "", "", ""
+                if not cedula_solicitante.strip() and not marca_temporal.strip():
+                    continue
+
+                parentesco = ""
+                tipo_documento = nombre_pestana
+                tipo_tramite_original = nombre_pestana
+                numero_copias = ""
+                anio_expediente_titulo = ""
+                fecha_acta = ""
+                nombre_titular = ""
+                contrayente_masculino = ""
+                contrayente_femenino = ""
+                datos_expediente = ""
+                url_adjunto_copia = ""
 
                 if "Matrimonio" in nombre_pestana:
                     parentesco = row[7] if total_cols > 7 else ""
-                    tipo_documento = row[8] if total_cols > 8 else nombre_pestana
+                    tipo_doc_raw = (row[8] if total_cols > 8 else "").strip()
+                    tipo_documento = tipo_doc_raw if tipo_doc_raw else nombre_pestana
+                    tipo_tramite_original = tipo_doc_raw if tipo_doc_raw else nombre_pestana
                     fecha_acta = row[9] if total_cols > 9 else ""
                     numero_copias = row[10] if total_cols > 10 else ""
                     contrayente_masculino = row[11] if total_cols > 11 else ""
@@ -633,7 +886,9 @@ def sincronizar_todas():
                     if total_cols > 13: url_adjunto_copia = row[13]
 
                 elif "Cementerio" in nombre_pestana:
-                    tipo_documento = row[7] if total_cols > 7 else nombre_pestana
+                    tipo_doc_raw = (row[7] if total_cols > 7 else "").strip()
+                    tipo_documento = tipo_doc_raw if tipo_doc_raw else nombre_pestana
+                    tipo_tramite_original = tipo_doc_raw if tipo_doc_raw else nombre_pestana
                     parentesco = row[8] if total_cols > 8 else ""
                     anio_expediente_titulo = row[9] if total_cols > 9 else ""
                     numero_copias = row[10] if total_cols > 10 else ""
@@ -641,7 +896,9 @@ def sincronizar_todas():
                     if total_cols > 12: url_adjunto_copia = row[12]
 
                 elif "OMPU" in nombre_pestana:
-                    tipo_documento = row[7] if total_cols > 7 else nombre_pestana
+                    tipo_doc_raw = (row[7] if total_cols > 7 else "").strip()
+                    tipo_documento = tipo_doc_raw if tipo_doc_raw else nombre_pestana
+                    tipo_tramite_original = tipo_doc_raw if tipo_doc_raw else nombre_pestana
                     parentesco = row[8] if total_cols > 8 else ""
                     anio_expediente_titulo = row[9] if total_cols > 9 else ""
                     numero_copias = row[10] if total_cols > 10 else ""
@@ -650,7 +907,9 @@ def sincronizar_todas():
 
                 elif "Ejidos" in nombre_pestana:
                     parentesco = row[7] if total_cols > 7 else ""
-                    tipo_documento = row[8] if total_cols > 8 else nombre_pestana
+                    tipo_doc_raw = (row[8] if total_cols > 8 else "").strip()
+                    tipo_documento = tipo_doc_raw if tipo_doc_raw else nombre_pestana
+                    tipo_tramite_original = tipo_doc_raw if tipo_doc_raw else nombre_pestana
                     anio_expediente_titulo = row[9] if total_cols > 9 else ""
                     nombre_titular = row[10] if total_cols > 10 else ""
                     numero_copias = row[11] if total_cols > 11 else ""
@@ -658,34 +917,40 @@ def sincronizar_todas():
 
                 cursor.execute("""
                     SELECT 1 FROM registros_excluidos 
-                    WHERE cedula = ? AND marca_temporal = ? AND tipo_documento = ?
-                """, (cedula_solicitante, marca_temporal, tipo_documento))
+                    WHERE cedula = ? AND marca_temporal = ?
+                """, (cedula_solicitante, marca_temporal))
                 if cursor.fetchone():
                     continue
 
                 cursor.execute("""
-                    SELECT id FROM solicitudes_tramites 
-                    WHERE cedula_solicitante = ? AND marca_temporal = ? AND tipo_documento = ?
-                """, (cedula_solicitante, marca_temporal, tipo_documento))
-                
-                if not cursor.fetchone():
+                    SELECT id, tipo_documento, tipo_tramite_original FROM solicitudes_tramites 
+                    WHERE cedula_solicitante = ? AND marca_temporal = ?
+                """, (cedula_solicitante, marca_temporal))
+                existente = cursor.fetchone()
+                if existente:
                     cursor.execute("""
-                        INSERT INTO solicitudes_tramites (
-                            marca_temporal, correo_google, correo_solicitante, apellido_solicitante, nombre_solicitante,
-                            nacionalidad, cedula_solicitante, tipo_documento, parentesco,
-                            numero_copias, anio_expediente_titulo, fecha_acta, nombre_titular,
-                            contrayente_masculino, contrayente_femenino, datos_expediente, 
-                            url_adjunto_copia, estado, sincronizado
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', 1)
-                    """, (
+                        UPDATE solicitudes_tramites 
+                        SET tipo_documento = ?, tipo_tramite_original = ?
+                        WHERE id = ?
+                    """, (tipo_documento, tipo_tramite_original, existente['id']))
+                    continue
+
+                cursor.execute("""
+                    INSERT INTO solicitudes_tramites (
                         marca_temporal, correo_google, correo_solicitante, apellido_solicitante, nombre_solicitante,
-                        nacionalidad, cedula_solicitante, tipo_documento, parentesco,
+                        nacionalidad, cedula_solicitante, tipo_documento, tipo_tramite_original, parentesco,
                         numero_copias, anio_expediente_titulo, fecha_acta, nombre_titular,
                         contrayente_masculino, contrayente_femenino, datos_expediente, 
-                        url_adjunto_copia
-                    ))
-                    nuevos_registros_total += 1
-
+                        url_adjunto_copia, estado, sincronizado
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', 1)
+                """, (
+                    marca_temporal, correo_google, correo_solicitante, apellido_solicitante, nombre_solicitante,
+                    nacionalidad, cedula_solicitante, tipo_documento, tipo_tramite_original, parentesco,
+                    numero_copias, anio_expediente_titulo, fecha_acta, nombre_titular,
+                    contrayente_masculino, contrayente_femenino, datos_expediente, 
+                    url_adjunto_copia
+                ))
+                nuevos_registros_total += 1
         conn.commit()
         conn.close()
 

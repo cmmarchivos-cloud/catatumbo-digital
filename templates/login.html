@@ -1,50 +1,605 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <meta charset="UTF-8">
-    <title>Acceso - Archivo Municipal de Maracaibo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - Catatumbo Digital • Concejo Municipal de Maracaibo</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --cyber-blue: #0284c7;
+            --cyber-cyan: #06b6d4;
+            --cyber-gold: #d4af37;
+            --cyber-gold-bright: #fcf6ba;
+            --cyber-dark-bg: #050b14;
+            --cyber-card-bg: rgba(10, 20, 38, 0.82);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--cyber-dark-bg);
+            background-image: 
+                radial-gradient(ellipse at 50% 15%, rgba(2, 132, 199, 0.18) 0%, transparent 60%),
+                radial-gradient(ellipse at 85% 85%, rgba(212, 175, 55, 0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 15% 85%, rgba(6, 182, 212, 0.10) 0%, transparent 50%);
+            min-height: 100vh;
+            color: #e2e8f0;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* CANVAS DE NODOS TECNOLÓGICOS EN EL FONDO */
+        #cyberCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.55;
+        }
+
+        /* CONTENEDOR PRINCIPAL FLOTANTE */
+        .main-wrapper {
+            position: relative;
+            z-index: 10;
+            flex: 1 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2.5rem 1rem;
+        }
+
+        /* TARJETA CIBERNÉTICA GLASSMORPHISM */
+        .cyber-card {
+            background: var(--cyber-card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(2, 132, 199, 0.35);
+            border-radius: 20px;
+            box-shadow: 
+                0 0 30px rgba(2, 132, 199, 0.22),
+                0 20px 40px rgba(0, 0, 0, 0.6),
+                inset 0 0 20px rgba(2, 132, 199, 0.08);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.35s ease;
+        }
+
+        /* LÍNEA DE ESCANEO TECNOLÓGICO SUPERIOR */
+        .cyber-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--cyber-cyan), var(--cyber-gold), transparent);
+            animation: cyberCardScan 4s linear infinite;
+        }
+
+        @keyframes cyberCardScan {
+            0% { left: -100%; }
+            50%, 100% { left: 100%; }
+        }
+
+        /* LOGO CON HALO DE BRILLO */
+        .logo-halo {
+            filter: drop-shadow(0 0 16px rgba(2, 132, 199, 0.5)) drop-shadow(0 0 6px rgba(212, 175, 55, 0.35));
+            transition: transform 0.3s ease;
+        }
+        .logo-halo:hover {
+            transform: scale(1.04);
+        }
+
+        /* BADGE TECNOLÓGICO DE ESTADO */
+        .cyber-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: #38bdf8;
+            background: rgba(2, 132, 199, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 50rem;
+            padding: 4px 14px;
+        }
+        .cyber-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #10b981;
+            animation: pulseDot 1.8s infinite;
+        }
+        @keyframes pulseDot {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.4); opacity: 0.6; }
+        }
+
+        /* INPUTS BASE */
+        .form-control-cyber {
+            background-color: rgba(15, 23, 42, 0.75) !important;
+            border: 1px solid rgba(148, 163, 184, 0.25) !important;
+            color: #ffffff !important;
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 0.95rem;
+            transition: all 0.25s ease;
+        }
+        .form-control-cyber:focus {
+            background-color: rgba(15, 23, 42, 0.95) !important;
+            border-color: var(--cyber-blue) !important;
+            box-shadow: 0 0 15px rgba(2, 132, 199, 0.35) !important;
+            color: #ffffff !important;
+        }
+
+        /* ========================================================
+           EFECTO TECNOLÓGICO HERMOSO EN LA PARTE DE LA CLAVE
+           ======================================================== */
+        .cyber-password-group {
+            position: relative;
+            border-radius: 14px;
+            padding: 3px;
+            background: linear-gradient(135deg, rgba(2, 132, 199, 0.3), rgba(212, 175, 55, 0.25), rgba(6, 182, 212, 0.3));
+            box-shadow: 0 0 20px rgba(2, 132, 199, 0.15);
+            transition: all 0.3s ease;
+        }
+        .cyber-password-group:focus-within {
+            box-shadow: 0 0 25px rgba(2, 132, 199, 0.5), 0 0 15px rgba(212, 175, 55, 0.4);
+            background: linear-gradient(135deg, var(--cyber-blue), var(--cyber-gold), var(--cyber-cyan));
+        }
+
+        /* LÁSER DE ESCANEO CRIPTOGRÁFICO */
+        .cyber-scanner-laser {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 35px;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.8), rgba(212, 175, 55, 0.9), transparent);
+            filter: blur(2px);
+            pointer-events: none;
+            opacity: 0.75;
+            z-index: 5;
+            animation: laserScanSweep 3s ease-in-out infinite alternate;
+        }
+        @keyframes laserScanSweep {
+            0% { left: 2%; transform: skewX(-15deg); }
+            100% { left: calc(98% - 35px); transform: skewX(15deg); }
+        }
+
+        .cyber-password-inner {
+            background-color: #0b1528;
+            border-radius: 12px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .cyber-pwd-icon {
+            padding-left: 14px;
+            padding-right: 4px;
+            font-size: 1.15rem;
+            color: var(--cyber-gold);
+            filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.6));
+            transition: transform 0.2s ease;
+        }
+        .cyber-password-group:focus-within .cyber-pwd-icon {
+            transform: scale(1.15) rotate(-5deg);
+            color: #ffd700;
+        }
+
+        .input-password-cyber {
+            border: none !important;
+            background: transparent !important;
+            color: #ffffff !important;
+            padding: 12px 14px;
+            font-size: 1.05rem;
+            letter-spacing: 2px;
+            width: 100%;
+            outline: none;
+        }
+        .input-password-cyber::placeholder {
+            letter-spacing: normal;
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        /* BOTÓN DE REVELAR/OCULTAR CONTRASEÑA */
+        .btn-toggle-eye {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            padding: 10px 14px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: color 0.2s, transform 0.2s;
+        }
+        .btn-toggle-eye:hover {
+            color: #38bdf8;
+            transform: scale(1.1);
+            filter: drop-shadow(0 0 6px #38bdf8);
+        }
+
+        /* MICRO-INDICADOR CRIPTOGRÁFICO / EQUALIZER */
+        .cyber-crypto-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.73rem;
+            letter-spacing: 1px;
+            color: #94a3b8;
+            margin-top: 8px;
+            padding: 0 4px;
+        }
+        .cyber-crypto-indicator.active {
+            color: #38bdf8;
+        }
+
+        /* BARRITAS DEL ECUALIZADOR CRIPTOGRÁFICO */
+        .cyber-eq-bars {
+            display: inline-flex;
+            align-items: flex-end;
+            gap: 2.5px;
+            height: 12px;
+        }
+        .cyber-eq-bars .bar {
+            width: 3px;
+            background: var(--cyber-cyan);
+            border-radius: 1px;
+            height: 4px;
+            transition: height 0.2s ease;
+        }
+        .cyber-eq-bars.animating .bar:nth-child(1) { animation: eqPulse 0.6s infinite alternate 0.1s; background: #0284c7; }
+        .cyber-eq-bars.animating .bar:nth-child(2) { animation: eqPulse 0.5s infinite alternate 0.2s; background: #38bdf8; }
+        .cyber-eq-bars.animating .bar:nth-child(3) { animation: eqPulse 0.7s infinite alternate 0.3s; background: #d4af37; }
+        .cyber-eq-bars.animating .bar:nth-child(4) { animation: eqPulse 0.4s infinite alternate 0.15s; background: #f59e0b; }
+        .cyber-eq-bars.animating .bar:nth-child(5) { animation: eqPulse 0.65s infinite alternate 0.25s; background: #10b981; }
+
+        @keyframes eqPulse {
+            0% { height: 3px; }
+            100% { height: 12px; }
+        }
+
+        /* BOTÓN DE ACCESO CIBERNÉTICO */
+        .btn-cyber-submit {
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #0284c7 100%);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            color: #ffffff;
+            font-weight: 700;
+            letter-spacing: 1px;
+            padding: 12px 20px;
+            border-radius: 12px;
+            box-shadow: 0 0 18px rgba(2, 132, 199, 0.4);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-cyber-submit:hover {
+            background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%);
+            box-shadow: 0 0 25px rgba(2, 132, 199, 0.7), 0 0 12px rgba(212, 175, 55, 0.5);
+            transform: translateY(-2px);
+            color: #ffffff;
+        }
+
+        /* ========================================================
+           ESTILOS OFICIALES DEL PIE DE PÁGINA (FONDO TECNOLÓGICO)
+           ======================================================== */
+        .footer-institucional {
+            position: relative;
+            z-index: 10;
+            flex-shrink: 0;
+            text-align: center;
+            overflow: hidden;
+            padding: 1.25rem 1rem 1.15rem 1rem;
+            background: #060d19 !important;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(2, 132, 199, 0.35) 0%, transparent 65%),
+                radial-gradient(circle at 15% 100%, rgba(6, 182, 212, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 85% 100%, rgba(212, 175, 55, 0.2) 0%, transparent 50%),
+                linear-gradient(rgba(2, 132, 199, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(2, 132, 199, 0.08) 1px, transparent 1px) !important;
+            background-size: 100% 100%, 100% 100%, 100% 100%, 28px 28px, 28px 28px !important;
+            border-top: 1px solid rgba(56, 189, 248, 0.35);
+            box-shadow: 0 -8px 30px rgba(2, 132, 199, 0.22), inset 0 1px 15px rgba(2, 132, 199, 0.15);
+        }
+
+        .footer-scanner-beam-login {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 120px;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.15), rgba(212, 175, 55, 0.2), transparent);
+            filter: blur(10px);
+            pointer-events: none;
+            animation: footerBeamScan 6s ease-in-out infinite alternate;
+            z-index: 1;
+        }
+
+        @keyframes footerBeamScan {
+            0% { left: 0%; transform: skewX(-20deg); }
+            100% { left: calc(100% - 120px); transform: skewX(20deg); }
+        }
+
+        /* TEXTO DORADO COMO DE ORO */
+        .texto-oro-dorado {
+            background: linear-gradient(135deg, #bf953f 0%, #fcf6ba 25%, #d4af37 50%, #fbf5b7 75%, #aa771c 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: #d4af37; /* Fallback */
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            filter: drop-shadow(0 1px 2px rgba(184, 134, 11, 0.45));
+            display: inline-block;
+        }
+
+        /* TEXTO AZUL INSTITUCIONAL CON EL MISMO EFECTO METÁLICO */
+        .texto-azul-inst, .texto-azul-brillante {
+            background: linear-gradient(135deg, #0284c7 0%, #38bdf8 25%, #7dd3fc 45%, #0ea5e9 65%, #2563eb 85%, #0369a1 100%) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            color: #38bdf8 !important;
+            font-weight: 800 !important;
+            letter-spacing: 0.35px;
+            filter: drop-shadow(0 1px 3px rgba(56, 189, 248, 0.55));
+            display: inline-block;
+        }
+        .footer-institucional::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #0284c7 20%, #38bdf8 35%, #ffd700 50%, #d4af37 65%, #0284c7 80%, transparent);
+            animation: footerLaserSweep 6s linear infinite alternate;
+        }
+        @keyframes footerLaserSweep {
+            0% { opacity: 0.7; filter: drop-shadow(0 0 2px #0284c7); }
+            50% { opacity: 1; filter: drop-shadow(0 0 6px #38bdf8) drop-shadow(0 0 6px #ffd700); }
+            100% { opacity: 0.7; filter: drop-shadow(0 0 2px #d4af37); }
+        }
+    </style>
 </head>
-<body class="bg-dark d-flex flex-column vh-100 justify-content-between" style="background: linear-gradient(135deg, #090d16 0%, #1a253a 100%);">
-    <div class="container d-flex align-items-center justify-content-center my-auto">
-        <div class="card shadow-lg border-0 rounded-4 p-4" style="width: 100%; max-width: 440px; background-color: #ffffff;">
-            <div class="text-center mb-4">
-                <div class="mb-3 d-flex justify-content-center align-items-center">
-                    <img src="{{ url_for('static', filename='img/logo.png') }}" id="mainLogo" alt="Logo" style="height: 65px;" class="bg-dark rounded p-2 shadow-sm">
+<body>
+
+    <!-- CANVAS DE RED TECNOLÓGICA -->
+    <canvas id="cyberCanvas"></canvas>
+
+    <!-- WRAPPER PRINCIPAL -->
+    <div class="main-wrapper">
+        <div class="container" style="max-width: 460px;">
+            <div class="card cyber-card p-4 p-md-5">
+                
+                <!-- ENCABEZADO CON LOGO Y TÍTULOS -->
+                <div class="text-center mb-4">
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo Concejo Municipal de Maracaibo" height="85" class="logo-halo mb-3" onerror="this.outerHTML='<i class=\'bi bi-bank fs-1 text-info mb-2\'></i>'">
+                    
+                    <div>
+                        <span class="cyber-badge mb-2">
+                            <span class="cyber-dot"></span>
+                            SISTEMA SEGURO • CMBM 2026
+                        </span>
+                    </div>
+
+                    <h2 class="fw-black text-white mb-0" style="letter-spacing: 1px; font-weight: 800;">
+                        CATATUMBO <span class="texto-azul-brillante">DIGITAL</span>
+                    </h2>
+                    <p class="small text-uppercase mb-0 mt-1" style="color: #94a3b8; font-size: 0.72rem; letter-spacing: 1.8px; font-weight: 600;">
+                        Dirección de Archivo General Municipal
+                    </p>
                 </div>
-                <h3 class="fw-bold text-dark mb-1">Archivo Municipal de Maracaibo</h3>
-                <p class="text-muted small">Concejo Municipal Bolivariano de Maracaibo</p>
+
+                <!-- ALERTAS / MENSAJES FLASH -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show border-0 shadow-sm py-2 px-3 small rounded-3" role="alert">
+                        <i class="bi bi-info-circle-fill me-1"></i> {{ message }}
+                        <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Close"></button>
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <!-- FORMULARIO DE ACCESO -->
+                <form action="/login" method="post" id="formLogin">
+                    
+                    <!-- CAMPO USUARIO -->
+                    <div class="mb-3 text-start">
+                        <label for="username" class="form-label small fw-bold text-uppercase" style="color: #94a3b8; font-size: 0.72rem; letter-spacing: 1px;">
+                            <i class="bi bi-person-fill me-1 text-info"></i> Usuario Identificado
+                        </label>
+                        <input type="text" class="form-control form-control-cyber" id="username" name="username" placeholder="Ingrese su usuario..." required autofocus autocomplete="username">
+                    </div>
+
+                    <!-- CAMPO CONTRASEÑA CON EFECTO TECNOLÓGICO HERMOSO -->
+                    <div class="mb-4 text-start">
+                        <label for="password" class="form-label small fw-bold text-uppercase d-flex justify-content-between align-items-center" style="color: #94a3b8; font-size: 0.72rem; letter-spacing: 1px;">
+                            <span><i class="bi bi-shield-lock-fill me-1 text-warning"></i> Contraseña de Seguridad</span>
+                            <span class="text-info fw-semibold" style="font-size: 0.68rem;"><i class="bi bi-fingerprint"></i> BIO-SCAN</span>
+                        </label>
+
+                        <!-- CONTENEDOR CIBERNÉTICO DE LA CLAVE -->
+                        <div class="cyber-password-group" id="cyberPwdContainer">
+                            <!-- LÁSER DE ESCANEO CONTINUO -->
+                            <div class="cyber-scanner-laser"></div>
+
+                            <div class="cyber-password-inner">
+                                <span class="cyber-pwd-icon">
+                                    <i class="bi bi-key-fill"></i>
+                                </span>
+                                <input type="password" class="input-password-cyber" id="password" name="password" placeholder="••••••••••••" required autocomplete="current-password">
+                                <button type="button" class="btn-toggle-eye" id="btnTogglePassword" title="Mostrar/Ocultar Contraseña">
+                                    <i class="bi bi-eye-fill" id="iconEye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- MICRO-INDICADOR DE CRIPTOGRAFÍA ACTIVA -->
+                        <div class="cyber-crypto-indicator" id="cryptoIndicator">
+                            <span class="d-flex align-items-center gap-1">
+                                <i class="bi bi-shield-check text-success"></i>
+                                <span>ENCRIPTACIÓN SHA-256 ACTIVA</span>
+                            </span>
+                            <div class="cyber-eq-bars" id="eqBars">
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BOTÓN INGRESAR -->
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-cyber-submit btn-block py-2">
+                            <i class="bi bi-shield-lock me-2 text-warning"></i> Acceder al Archivo Digital
+                        </button>
+                    </div>
+
+                </form>
+
             </div>
-            <form method="POST">
-                <div class="mb-3">
-                    <label class="form-label fw-semibold text-secondary small">Usuario</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
-                        <input type="text" name="username" class="form-control" required autofocus>
-                    </div>
-                </div>
-                <div class="mb-4">
-                    <label class="form-label fw-semibold text-secondary small">Contraseña</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-key"></i></span>
-                        <input type="password" name="password" class="form-control" required>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-dark w-100 py-2 fw-bold shadow-sm" style="background-color: #0f172a;"><i class="bi bi-box-arrow-in-right me-2"></i> Ingresar al Sistema</button>
-            </form>
         </div>
     </div>
-    <footer class="text-center py-3 text-light small border-top border-secondary bg-transparent">
-        <p class="mb-1 fw-medium" style="font-size: 0.8rem;">Creado Concejo Municipal Bolivariano de Maracaibo &copy; 2026 - Toda la Gloria es para Dios</p>
-        <p class="mb-0 fst-italic text-warning" style="font-size: 0.75rem;">"{{ versiculo_texto }}" — {{ versiculo_ref }}</p>
+
+    <!-- PIE DE PÁGINA OFICIAL CMBM -->
+    <footer class="footer-institucional">
+        <div class="footer-scanner-beam-login"></div>
+        <div class="container">
+            <!-- PARTE DE ARRIBA: AZUL + DORADO -->
+            <div class="mb-1" style="font-size: 0.85rem;">
+                <span class="texto-azul-inst">Creado por el Concejo Municipal Bolivariano de Maracaibo &copy; 2026</span>
+                <span class="text-secondary mx-1 opacity-50">-</span>
+                <span class="texto-oro-dorado">Toda la Gloria es para Dios</span>
+            </div>
+            <!-- PARTE DE ABAJO: PROVERBIOS 2:6 EN COLOR DORADO COMO ORO -->
+            <div class="texto-oro-dorado fst-italic" style="font-size: 0.82rem;">
+                "{{ versiculo_texto }}" — <strong>{{ versiculo_ref }}</strong>
+            </div>
+        </div>
     </footer>
+
+    <!-- SCRIPTS TECNOLÓGICOS INTERACTIVOS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.getElementById('mainLogo').addEventListener('error', function() {
-            this.outerHTML = '<div class="bg-dark rounded p-2 shadow-sm d-inline-block"><i class="bi bi-bank fs-1 text-warning"></i></div>';
+        // 1. Alternar visualización de contraseña
+        const btnToggle = document.getElementById('btnTogglePassword');
+        const pwdInput = document.getElementById('password');
+        const iconEye = document.getElementById('iconEye');
+        const eqBars = document.getElementById('eqBars');
+        const cryptoIndicator = document.getElementById('cryptoIndicator');
+        const pwdContainer = document.getElementById('cyberPwdContainer');
+
+        btnToggle.addEventListener('click', function() {
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                iconEye.classList.replace('bi-eye-fill', 'bi-eye-slash-fill');
+            } else {
+                pwdInput.type = 'password';
+                iconEye.classList.replace('bi-eye-slash-fill', 'bi-eye-fill');
+            }
         });
+
+        // 2. Efecto reactivo al teclear en el campo de clave
+        pwdInput.addEventListener('input', function() {
+            if (pwdInput.value.length > 0) {
+                eqBars.classList.add('animating');
+                cryptoIndicator.classList.add('active');
+            } else {
+                eqBars.classList.remove('animating');
+                cryptoIndicator.classList.remove('active');
+            }
+        });
+
+        pwdInput.addEventListener('focus', function() {
+            eqBars.classList.add('animating');
+        });
+
+        pwdInput.addEventListener('blur', function() {
+            if (pwdInput.value.length === 0) {
+                eqBars.classList.remove('animating');
+            }
+        });
+
+        // 3. Canvas de fondo con partículas y nodos tecnológicos
+        const canvas = document.getElementById('cyberCanvas');
+        const ctx = canvas.getContext('2d');
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        const particles = [];
+        const numParticles = Math.min(width > 768 ? 45 : 25, 50);
+
+        for (let i = 0; i < numParticles; i++) {
+            particles.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                vx: (Math.random() - 0.5) * 0.7,
+                vy: (Math.random() - 0.5) * 0.7,
+                radius: Math.random() * 2 + 1,
+                color: Math.random() > 0.4 ? 'rgba(56, 189, 248, ' : 'rgba(212, 175, 55, '
+            });
+        }
+
+        function renderCyberNetwork() {
+            ctx.clearRect(0, 0, width, height);
+
+            for (let i = 0; i < particles.length; i++) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.x < 0 || p.x > width) p.vx *= -1;
+                if (p.y < 0 || p.y > height) p.vy *= -1;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = p.color + '0.8)';
+                ctx.fill();
+
+                // Conexiones de red
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p2 = particles[j];
+                    const dx = p.x - p2.x;
+                    const dy = p.y - p2.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < 130) {
+                        ctx.beginPath();
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        const alpha = (1 - dist / 130) * 0.25;
+                        ctx.strokeStyle = `rgba(56, 189, 248, ${alpha})`;
+                        ctx.lineWidth = 0.8;
+                        ctx.stroke();
+                    }
+                }
+            }
+            requestAnimationFrame(renderCyberNetwork);
+        }
+        renderCyberNetwork();
     </script>
 </body>
 </html>

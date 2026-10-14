@@ -1,0 +1,201 @@
+<style>
+    /* ========================================================
+       EFECTO METÁLICO LUMINOSO (ORO DORADO Y AZUL INSTITUCIONAL)
+       ======================================================== */
+    
+    /* LETRAS DORADAS COMO DE ORO METÁLICO (SHINY 24K GOLD) */
+    .texto-oro-dorado, .texto-oro {
+        background: linear-gradient(135deg, #b8860b 0%, #ffd700 22%, #fff9db 42%, #d4af37 62%, #ffc107 82%, #8b6508 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        color: #d4af37 !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.35px;
+        filter: drop-shadow(0 1px 2px rgba(184, 134, 11, 0.55));
+        display: inline-block;
+    }
+
+    /* LETRAS AZULES CON EL MISMO EFECTO METÁLICO BRILLANTE */
+    .texto-azul-inst, .texto-azul-brillante, .texto-azul-resplandor {
+        background: linear-gradient(135deg, #0284c7 0%, #38bdf8 25%, #7dd3fc 45%, #0ea5e9 65%, #2563eb 85%, #0369a1 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        color: #38bdf8 !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.35px;
+        filter: drop-shadow(0 1px 3px rgba(56, 189, 248, 0.65));
+        display: inline-block;
+    }
+
+    /* Respetar iconos dentro de texto con gradiente */
+    .texto-oro-dorado i, .texto-oro i {
+        -webkit-text-fill-color: initial !important;
+        color: #ffd700 !important;
+    }
+    .texto-azul-inst i, .texto-azul-brillante i {
+        -webkit-text-fill-color: initial !important;
+        color: #38bdf8 !important;
+    }
+
+    /* REALCE EN LAS PARTES AZULES DESTACADAS DEL SISTEMA */
+    .text-primary.fw-bold, .text-primary.fw-semibold,
+    .text-info.fw-bold, .text-info.fw-semibold {
+        background: linear-gradient(135deg, #0284c7 0%, #38bdf8 30%, #60a5fa 70%, #0369a1 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 1px 2px rgba(2, 132, 199, 0.45));
+        display: inline-block;
+    }
+    .text-primary.fw-bold i, .text-primary.fw-semibold i,
+    .text-info.fw-bold i, .text-info.fw-semibold i {
+        -webkit-text-fill-color: initial !important;
+        color: #0284c7;
+    }
+
+    /* ========================================================
+       EFECTO TECNOLÓGICO HERMOSO EN BOTONES AZULES
+       (IDÉNTICO AL INICIO DE SESIÓN / CYBERNETIC BUTTON EFFECT)
+       ======================================================== */
+    .btn-primary, .btn-cyber-primary {
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #0284c7 100%) !important;
+        border: 1px solid rgba(56, 189, 248, 0.5) !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.5px;
+        box-shadow: 0 0 16px rgba(2, 132, 199, 0.45), inset 0 0 10px rgba(56, 189, 248, 0.2) !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        z-index: 1;
+    }
+
+    /* Haz de barrido láser interactivo en el botón */
+    .btn-primary::before, .btn-cyber-primary::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.4), rgba(212, 175, 55, 0.35), transparent);
+        transition: left 0.6s ease;
+        z-index: -1;
+    }
+
+    .btn-primary:hover, .btn-cyber-primary:hover {
+        background: linear-gradient(135deg, #0369a1 0%, #0ea5e9 50%, #0284c7 100%) !important;
+        box-shadow: 0 0 25px rgba(2, 132, 199, 0.75), 0 0 14px rgba(212, 175, 55, 0.45) !important;
+        transform: translateY(-2px);
+        color: #ffffff !important;
+    }
+
+    .btn-primary:hover::before, .btn-cyber-primary:hover::before {
+        left: 100%;
+    }
+
+    /* BOTONES OUTLINE AZULES CON RESPLANDOR CYBER */
+    .btn-outline-primary {
+        border: 1.5px solid rgba(56, 189, 248, 0.6) !important;
+        color: #0284c7 !important;
+        font-weight: 700 !important;
+        box-shadow: 0 0 10px rgba(2, 132, 199, 0.2);
+        transition: all 0.3s ease;
+    }
+    .btn-outline-primary:hover {
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+        border-color: #38bdf8 !important;
+        color: #ffffff !important;
+        box-shadow: 0 0 20px rgba(2, 132, 199, 0.6), 0 0 10px rgba(56, 189, 248, 0.4);
+        transform: translateY(-1px);
+    }
+
+    /* ========================================================
+       FONDO TECNOLÓGICO HERMOSO EN EL PIE DE PÁGINA
+       (FONDO CIBERNÉTICO PROFUNDO + GRID DE MALLA DIGITAL)
+       ======================================================== */
+    .footer-cmbm-global {
+        position: relative;
+        overflow: hidden;
+        margin-top: auto;
+        padding: 22px 20px 20px 20px;
+        text-align: center;
+        background: #060d19 !important;
+        background-image: 
+            radial-gradient(circle at 50% 0%, rgba(2, 132, 199, 0.35) 0%, transparent 65%),
+            radial-gradient(circle at 15% 100%, rgba(6, 182, 212, 0.2) 0%, transparent 50%),
+            radial-gradient(circle at 85% 100%, rgba(212, 175, 55, 0.2) 0%, transparent 50%),
+            linear-gradient(rgba(2, 132, 199, 0.08) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(2, 132, 199, 0.08) 1px, transparent 1px) !important;
+        background-size: 100% 100%, 100% 100%, 100% 100%, 28px 28px, 28px 28px !important;
+        border-top: 1px solid rgba(56, 189, 248, 0.35);
+        box-shadow: 0 -8px 30px rgba(2, 132, 199, 0.22), inset 0 1px 15px rgba(2, 132, 199, 0.15);
+    }
+
+    /* LÍNEA LÁSER DUAL SUPERIOR (AZUL Y ORO) CON BARRIDO CONTINUO */
+    .footer-cmbm-global::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, 
+            transparent 0%, 
+            #0284c7 15%, 
+            #38bdf8 30%, 
+            #ffd700 50%, 
+            #d4af37 70%, 
+            #0284c7 85%, 
+            transparent 100%);
+        animation: footerLaserSweep 5s ease-in-out infinite alternate;
+        z-index: 2;
+    }
+
+    @keyframes footerLaserSweep {
+        0% { opacity: 0.7; filter: drop-shadow(0 0 3px #0284c7); transform: scaleX(0.95); }
+        50% { opacity: 1; filter: drop-shadow(0 0 8px #38bdf8) drop-shadow(0 0 8px #ffd700); transform: scaleX(1); }
+        100% { opacity: 0.7; filter: drop-shadow(0 0 3px #d4af37); transform: scaleX(0.95); }
+    }
+
+    /* LÁSER DE ESCANEO HORIZONTAL EN EL FOOTER */
+    .footer-scanner-beam {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 120px;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.15), rgba(212, 175, 55, 0.2), transparent);
+        filter: blur(10px);
+        pointer-events: none;
+        animation: footerBeamScan 6s ease-in-out infinite alternate;
+        z-index: 1;
+    }
+
+    @keyframes footerBeamScan {
+        0% { left: 0%; transform: skewX(-20deg); }
+        100% { left: calc(100% - 120px); transform: skewX(20deg); }
+    }
+
+    .footer-content-wrap {
+        position: relative;
+        z-index: 5;
+    }
+</style>
+
+<footer class="footer-cmbm-global text-center small mt-auto no-print">
+    <!-- HAZ DE LUZ LÁSER CIBERNÉTICO QUE BARRE EL FOOTER -->
+    <div class="footer-scanner-beam"></div>
+
+    <div class="container footer-content-wrap">
+        <!-- PARTE DE ARRIBA: AZUL INSTITUCIONAL Y ORO DORADO -->
+        <div class="mb-2" style="font-size: 0.92rem;">
+            <span class="texto-azul-inst">Creado por el Concejo Municipal Bolivariano de Maracaibo &copy; 2026</span>
+            <span class="text-white mx-2 opacity-50">•</span>
+            <span class="texto-oro-dorado">Toda la Gloria es para Dios</span>
+        </div>
+        <!-- PARTE DE ABAJO: PROVERBIOS 2:6 EN COLOR DORADO COMO DE ORO -->
+        <div class="texto-oro-dorado fst-italic" style="font-size: 0.88rem;">
+            "{{ versiculo_texto }}" — <strong>{{ versiculo_ref }}</strong>
+        </div>
+    </div>
+</footer>

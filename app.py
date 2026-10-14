@@ -196,24 +196,26 @@ def init_db():
             VALUES (?, ?, ?, ?)
         ''', default_users)
         conn.commit()
+
+    import cierre_periodo
+    cierre_periodo.inicializar_tabla_cierres(conn)
         
     conn.close()
 
 init_db()
 
+import versiculos
+
 @app.context_processor
 def inject_verse():
-    versiculos = [
-        ("Proverbios 2:6", "Porque Jehová da la sabiduría, y de su boca viene el conocimiento y la inteligencia."),
-        ("Colosenses 3:23", "Y todo lo que hiciereis, hacedlo de corazón, como para el Señor y no para los hombres;"),
-        ("Salmos 90:17", "Sea la luz de Jehová nuestro Dios sobre nosotros, y la obra de manos confirma sobre nosotros.")
-    ]
-    idx = datetime.now().toordinal() % len(versiculos)
-    ref, texto = versiculos[idx]
-    return dict(versiculo_ref=ref, versiculo_texto=texto)
+    ref, texto = versiculos.obtener_versiculo_del_dia()
+    return dict(
+        versiculo_ref=ref,
+        versiculo_texto=texto
+    )
 
 TIPOS_DOCUMENTO = [
-    "Acta de nacimiento", "Acta de matrimonio", "Sentencia de divorcio",
+    "Matrimonio-Nacimiento-Divorcio",
     "Título de cementerio", "Expediente de venta terrenos ejidos",
     "Actas de sesiones", "Gaceta oficial",
     "Expedientes de construcción de urbanismo de Maracaibo OMPU",
@@ -455,13 +457,23 @@ def editar(idx):
         uploaded_files = request.files.getlist('pdfs')
         total_actual = len(doc['archivos'])
         for file in uploaded_files:
-            if file and file.filename.endswith('.pdf'):
-                if total_actual >= 12: break
-                filename = secure_filename(file.filename)
-                unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
-                file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
-                doc['archivos'].append(unique_filename)
-                total_actual += 1
+            if file and file.filename:
+                fn_lower = file.filename.lower()
+                if fn_lower.endswith('.pdf') or any(fn_lower.endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.webp']):
+                    if total_actual >= 12: break
+                    filename = secure_filename(file.filename)
+                    unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+                    filepath = os.path.join(UPLOAD_FOLDER, unique_filename)
+                    file.save(filepath)
+                    doc['archivos'].append(unique_filename)
+                    total_actual += 1
+                    try:
+                        import shutil
+                        upload_static_dir = os.path.join(BASE_DIR, 'static', 'uploads')
+                        os.makedirs(upload_static_dir, exist_ok=True)
+                        shutil.copy2(filepath, os.path.join(upload_static_dir, unique_filename))
+                    except Exception:
+                        pass
 
         save_db_doc(doc, doc_id=idx)
         flash('Registro actualizado correctamente.', 'success')

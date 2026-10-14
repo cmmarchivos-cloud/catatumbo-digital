@@ -77,8 +77,8 @@ class DialogoProcesar(QDialog):
         <div style="background-color: #f4f7f9; padding: 40px 10px; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
           <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e1e8ed;">
             <div style="background: linear-gradient(135deg, #03254c 0%, #064b99 100%); color: white; padding: 30px; text-align: center;">
-              <div style="font-size: 24px; font-weight: 800; letter-spacing: 1px; margin-bottom: 5px;">ARCHIVO MUNICIPAL</div>
-              <div style="font-size: 12px; text-transform: uppercase; opacity: 0.9; letter-spacing: 2px;">Concejo Municipal Bolivariano de Maracaibo</div>
+              <div style="font-size: 20px; font-weight: 800; letter-spacing: 1px; margin-bottom: 5px;">Concejo Municipal Bolivariano de Maracaibo</div>
+              <div style="font-size: 14px; text-transform: uppercase; opacity: 0.95; letter-spacing: 2px;">Archivo Municipal</div>
             </div>
             <div style="padding: 30px; line-height: 1.6;">
               <h3 style="color: #03254c; margin-top: 0;">¡Solicitud Procesada con Éxito!</h3>

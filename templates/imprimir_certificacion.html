@@ -2,13 +2,15 @@
 <html lang="es">
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <meta charset="UTF-8">
     <title>Copia Certificada - Expediente N° #{{ documento.id }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     
+    <!-- Librería PDF.js para renderizar la Cara 1 con precisión en la vista previa e impresión -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
     <style>
         /* ESTILOS GENERALES DE PANTALLA */
         body {
@@ -83,10 +85,9 @@
                 margin: 0;
                 padding: 0;
             }
-            .container-fluid {
+            .container-fluid, .col-impresion {
                 padding: 0 !important;
-            }
-            .col-impresion {
+                margin: 0 !important;
                 width: 100% !important;
                 max-width: 100% !important;
                 flex: 0 0 100% !important;
@@ -102,22 +103,27 @@
             
             .pagina-anverso {
                 display: block !important;
+                width: 100% !important;
                 height: 100vh !important;
-                min-height: 100vh !important;
                 page-break-after: always !important;
                 break-after: page !important;
                 padding: 0 !important;
+                margin: 0 !important;
+                text-align: center;
             }
-            .visor-pdf-hoja {
+            .pagina-anverso canvas {
                 width: 100% !important;
-                height: 100vh !important;
-                border: none !important;
+                height: 100% !important;
+                max-height: 100vh !important;
+                object-fit: contain;
             }
 
             .pagina-reverso {
                 page-break-before: always !important;
                 break-before: page !important;
                 padding: 1.5cm !important;
+                width: 100% !important;
+                min-height: 100vh !important;
             }
             
             .input-inline {
@@ -163,7 +169,6 @@
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
         }
-
     </style>
 </head>
 <body>
@@ -179,7 +184,7 @@
                 {% if documento.archivos and documento.archivos|length > 1 %}
                 <div class="d-flex align-items-center gap-2 text-white">
                     <label for="selectArchivo" class="small fw-bold text-nowrap mb-0">PDF Adjunto:</label>
-                    <select id="selectArchivo" class="form-select form-select-sm" onchange="actualizarVisoresPdf(this.value)">
+                    <select id="selectArchivo" class="form-select form-select-sm" onchange="cambiarArchivoPdf(this.value)">
                         {% for arc in documento.archivos %}
                         <option value="{{ url_for('ver_archivo', filename=arc) }}">Adjunto {{ loop.index }}: {{ arc }}</option>
                         {% endfor %}
@@ -226,11 +231,9 @@
             <!-- PANEL DERECHO: EDICIÓN DE PREFORMA Y SALIDA A IMPRESIÓN DÚPLEX -->
             <div class="col-lg-7 col-impresion">
                 
-                <!-- PÁGINA 1: ANVERSO (DOCUMENTO ORIGINAL) -->
+                <!-- PÁGINA 1: ANVERSO (DOCUMENTO ORIGINAL RENDERIZADO PARA IMPRESIÓN) -->
                 <div class="hoja-impresion pagina-anverso">
-                    {% if documento.archivos %}
-                        <iframe id="pdfAnversoImpresion" class="visor-pdf-hoja" src="{{ url_for('ver_archivo', filename=documento.archivos[0]) }}"></iframe>
-                    {% endif %}
+                    <canvas id="pdfCanvasAnverso"></canvas>
                 </div>
 
                 <!-- PÁGINA 2: REVERSO (COPIA CERTIFICADA OFICIAL) -->
@@ -255,7 +258,7 @@
                     <!-- PREFORMA EDITABLE OFICIAL -->
                     <div class="texto-certificacion my-3">
                         <p>
-                            Yo, <strong>Dr. EDWIN JOSUE BAPTISTA RODRIGUEZ</strong>, venezolano, mayor de edad, titular de la cédula de identidad No. <strong>V-16.622.181</strong>, en mi carácter de <strong>SECRETARIO DEL CONCEJO MUNICIPAL DE MARACAIBO</strong>, según consta en Sesión Extraordinaria de fecha 09 de enero de 2026, publicada en Gaceta Municipal Nº 001-2026 de fecha 09 de enero de 2026, de conformidad con las atribuciones conferidas por el numeral 6 del artículo 114 de la Ley Orgánica del Poder Público Municipal, y debidamente autorizado por la presidenta del Concejo Municipal de Maracaibo, Dessiree Fernández Parra, mediante oficio No. PCM-002-2026 de fecha 09 de enero de 2026, <strong>CERTIFICA:</strong> Que el presente fotostato se encuentra en el 
+                            Yo, <strong>Dr. EDWIN JOSUE BAPTISTA RODRIGUEZ</strong>, venezolano, mayor de edad, titular de la cédula de identidad No. <strong>V-16.622.181</strong>, en mi carácter de <strong>SECRETARIO DEL CONCEJO MUNICIPAL DE MARACAIBO</strong>, según consta en Sesión Extraordinaria de fecha 09 de enero de 2026, publicada en Gaceta Municipal Nº 001-2026 de fecha 09 de enero de 2026, de conformidad con las atribuciones conferidas por el numeral 6 del artículo 114 de la Ley Orgánica del Poder Público Municipal, y debidamente autorizado por la presidenta del Concejo Municipal de Maracaibo, Dessiree Fernández Parra, mediante oficio No. PCM-002-2026 de fecha 09 de enero de 2026, <strong>CERTIFICA:</strong> Que el presente fotostato se encuentra en el tomo
                             <input type="text" class="input-inline" style="width: 250px;" value="{{ documento.tipo_documento or 'Tomo de Expediente de Matrimonio' }}" placeholder="Tipo de Documento / Tomo"> 
                             N° <input type="text" class="input-inline" style="width: 60px;" value="{{ documento.tomo or '15' }}" placeholder="Tomo">, 
                             año: <input type="text" class="input-inline" style="width: 70px;" value="{{ documento.fecha_documento or documento.anio_documento or '1983' }}" placeholder="Año">, 
@@ -273,11 +276,21 @@
                         <em>Artículo 114: Son atribuciones del Secretario o Secretaria del Concejo Municipal: … 6.-Expedir, de conformidad con la ley, certificaciones de las actas de Concejo Municipal o de cualquier otro documento que repose en los archivos del órgano, previa autorización del Presidente o Presidenta del cuerpo…</em>
                     </div>
 
-                    <!-- SECCIÓN DE FIRMA Y SELLO -->
+                    <!-- SECCIÓN DE FIRMAS Y SELLOS (DOS COLUMNAS) -->
                     <div class="row text-center mt-5 pt-4" style="page-break-inside: avoid;">
-                        <div class="col-6 offset-3">
-                            <div class="border-top border-dark pt-2">
-                                <p class="fw-bold mb-0 text-uppercase" style="font-size: 1.05rem;">Dr. EDWIN JOSUE BAPTISTA RODRIGUEZ</p>
+                        <!-- IZQUIERDA: COORDINADOR DE ARCHIVO -->
+                        <div class="col-6">
+                            <div class="border-top border-dark pt-2 px-2">
+                                <input type="text" class="input-inline text-center fw-bold text-uppercase w-100" style="font-size: 0.95rem;" value="COORDINADOR DE ARCHIVO MUNICIPAL" placeholder="Nombre / Cargo del Coordinador">
+                                <p class="small mb-1 fw-bold">Concejo Municipal de Maracaibo</p>
+                                <p class="small text-muted mb-0">Firma del Coordinador de Archivo</p>
+                            </div>
+                        </div>
+
+                        <!-- DERECHA: SECRETARIO MUNICIPAL -->
+                        <div class="col-6">
+                            <div class="border-top border-dark pt-2 px-2">
+                                <p class="fw-bold mb-0 text-uppercase" style="font-size: 0.95rem;">Dr. EDWIN JOSUE BAPTISTA RODRIGUEZ</p>
                                 <p class="small mb-1 fw-bold">Secretario del Concejo Municipal de Maracaibo</p>
                                 <p class="small text-muted mb-0">Firma y Sello del Secretario Municipal</p>
                             </div>
@@ -292,11 +305,39 @@
     </div>
 
     <script>
-        function actualizarVisoresPdf(url) {
+        const urlPdfInicial = "{% if documento.archivos %}{{ url_for('ver_archivo', filename=documento.archivos[0]) }}{% endif %}";
+
+        function renderizarPdfEnCanvas(url) {
+            if (!url) return;
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            pdfjsLib.getDocument(url).promise.then(function(pdf) {
+                pdf.getPage(1).then(function(page) {
+                    const scale = 2.0; // Alta resolución óptima para impresión
+                    const viewport = page.getViewport({ scale: scale });
+                    const canvas = document.getElementById('pdfCanvasAnverso');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+
+                    const renderContext = {
+                        canvasContext: context,
+                        viewport: viewport
+                    };
+                    page.render(renderContext);
+                });
+            });
+        }
+
+        // Renderizar al cargar la página
+        if (urlPdfInicial) {
+            renderizarPdfEnCanvas(urlPdfInicial);
+        }
+
+        // Función al cambiar de archivo adjunto en el selector superior
+        function cambiarArchivoPdf(url) {
             const pdfConsulta = document.getElementById('pdfConsultaViewer');
-            const pdfAnverso = document.getElementById('pdfAnversoImpresion');
             if (pdfConsulta) pdfConsulta.src = url;
-            if (pdfAnverso) pdfAnverso.src = url;
+            renderizarPdfEnCanvas(url);
         }
     </script>
 </body>

@@ -5,7 +5,8 @@ import io
 import urllib.request
 
 # Configuración local de rutas y el ID único del documento de Google Sheets
-DB_PATH = "catatumbo.db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "catatumbo.db")
 SPREADSHEET_ID = "1cVtzyJ2Y7X9N1fZ9rGZgLxPazXjnuaGg7eIZFVwgX7k"
 
 # Enlaces directos configurados con sus respectivos gids y nombres de pestañas
@@ -123,7 +124,7 @@ def ejecutar_sincronizacion():
 
                 filas_pestana = 0
                 for row in reader:
-                    if not row or len(row) < 5:
+                    if not row or len(row) < 5 or not any(field.strip() for field in row):
                         continue
                     
                     total_cols = len(row)
@@ -135,6 +136,9 @@ def ejecutar_sincronizacion():
                     cedula_solicitante = row[4] if total_cols > 4 else ""
                     nacionalidad = row[5] if total_cols > 5 else "V"
                     correo_solicitante = row[6] if total_cols > 6 else correo_google
+
+                    if not cedula_solicitante.strip() and not marca_temporal.strip():
+                        continue
 
                     parentesco = ""
                     tipo_documento = nombre_pestana
@@ -149,7 +153,9 @@ def ejecutar_sincronizacion():
 
                     if "Matrimonio" in nombre_pestana:
                         parentesco = row[7] if total_cols > 7 else ""
-                        tipo_documento = row[8] if total_cols > 8 else nombre_pestana
+                        tipo_doc_raw = (row[8] if total_cols > 8 else "").strip()
+                        tipo_documento = tipo_doc_raw if tipo_doc_raw else nombre_pestana
+                        tipo_tramite_original = tipo_doc_raw if tipo_doc_raw else nombre_pestana
                         fecha_acta = row[9] if total_cols > 9 else ""
                         numero_copias = row[10] if total_cols > 10 else ""
                         contrayente_masculino = row[11] if total_cols > 11 else ""
@@ -159,7 +165,9 @@ def ejecutar_sincronizacion():
                             url_adjunto_copia = row[13]
 
                     elif "Cementerio" in nombre_pestana:
-                        tipo_documento = row[7] if total_cols > 7 else nombre_pestana
+                        tipo_doc_raw = (row[7] if total_cols > 7 else "").strip()
+                        tipo_documento = tipo_doc_raw if tipo_doc_raw else nombre_pestana
+                        tipo_tramite_original = tipo_doc_raw if tipo_doc_raw else nombre_pestana
                         parentesco = row[8] if total_cols > 8 else ""
                         anio_expediente = row[9] if total_cols > 9 else ""
                         numero_copias = row[10] if total_cols > 10 else ""
@@ -168,7 +176,9 @@ def ejecutar_sincronizacion():
                             url_adjunto_copia = row[12]
 
                     elif "OMPU" in nombre_pestana:
-                        tipo_documento = row[7] if total_cols > 7 else nombre_pestana
+                        tipo_doc_raw = (row[7] if total_cols > 7 else "").strip()
+                        tipo_documento = tipo_doc_raw if tipo_doc_raw else nombre_pestana
+                        tipo_tramite_original = tipo_doc_raw if tipo_doc_raw else nombre_pestana
                         parentesco = row[8] if total_cols > 8 else ""
                         anio_expediente = row[9] if total_cols > 9 else ""
                         numero_copias = row[10] if total_cols > 10 else ""
@@ -178,35 +188,42 @@ def ejecutar_sincronizacion():
 
                     elif "Ejidos" in nombre_pestana:
                         parentesco = row[7] if total_cols > 7 else ""
-                        tipo_documento = row[8] if total_cols > 8 else nombre_pestana
+                        tipo_doc_raw = (row[8] if total_cols > 8 else "").strip()
+                        tipo_documento = tipo_doc_raw if tipo_doc_raw else nombre_pestana
+                        tipo_tramite_original = tipo_doc_raw if tipo_doc_raw else nombre_pestana
                         anio_expediente = row[9] if total_cols > 9 else ""
                         nombre_titular = row[10] if total_cols > 10 else ""
                         numero_copias = row[11] if total_cols > 11 else ""
                         if total_cols > 12:
                             url_adjunto_copia = row[12]
 
-                    # Validación anti-duplicados
+                    # Validación anti-duplicados y actualización de trámite original
                     if marca_temporal and cedula_solicitante:
                         cursor.execute("""
-                            SELECT 1 FROM solicitudes_tramites 
-                            WHERE marca_temporal = ? AND cedula_solicitante = ? AND tipo_documento = ?
-                        """, (marca_temporal, cedula_solicitante, tipo_documento))
-                        
-                        if cursor.fetchone():
+                            SELECT id, tipo_documento, tipo_tramite_original FROM solicitudes_tramites 
+                            WHERE marca_temporal = ? AND cedula_solicitante = ?
+                        """, (marca_temporal, cedula_solicitante))
+                        existente = cursor.fetchone()
+                        if existente:
+                            cursor.execute("""
+                                UPDATE solicitudes_tramites 
+                                SET tipo_documento = ?, tipo_tramite_original = ?
+                                WHERE id = ?
+                            """, (tipo_documento, tipo_tramite_original, existente[0]))
                             duplicados_omitidos += 1
                             continue
 
                     cursor.execute("""
                         INSERT INTO solicitudes_tramites (
                             marca_temporal, correo_google, correo_solicitante, nombre_solicitante, apellido_solicitante,
-                            nacionalidad, cedula_solicitante, tipo_documento, parentesco,
+                            nacionalidad, cedula_solicitante, tipo_documento, tipo_tramite_original, parentesco,
                             numero_copias, anio_expediente_titulo, fecha_acta, 
                             nombre_titular, contrayente_masculino, contrayente_femenino, 
                             datos_expediente, url_adjunto_copia, estado, sincronizado
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', 1)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', 1)
                     """, (
                         marca_temporal, correo_google, correo_solicitante, nombre_solicitante, apellido_solicitante,
-                        nacionalidad, cedula_solicitante, tipo_documento, parentesco,
+                        nacionalidad, cedula_solicitante, tipo_documento, tipo_tramite_original, parentesco,
                         numero_copias, anio_expediente, fecha_acta,
                         nombre_titular, contrayente_masculino, contrayente_femenino,
                         datos_expediente, url_adjunto_copia

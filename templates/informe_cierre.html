@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informe Oficial de Cierre - {{ informe.codigo_cierre }} - Concejo Municipal de Maracaibo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #525659;
+            color: #0f172a;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .toolbar-flotante {
+            background-color: #0f172a;
+            color: #ffffff;
+            position: sticky;
+            top: 0;
+            z-index: 1050;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+            padding: 10px 20px;
+        }
+
+        .hoja-informe {
+            background-color: #ffffff;
+            width: 215.9mm;
+            min-height: 279.4mm;
+            margin: 25px auto;
+            padding: 20mm 20mm 22mm 20mm;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .institucional-header {
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+        }
+
+        .titulo-informe {
+            font-family: 'Cinzel', serif;
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: #03254c;
+            line-height: 1.3;
+        }
+
+        .caja-metadatos {
+            background-color: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-left: 4px solid #03254c;
+            border-radius: 4px;
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+        }
+
+        .tabla-formal {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+            margin-bottom: 16px;
+        }
+        .tabla-formal th {
+            background-color: #0f172a !important;
+            color: #ffffff !important;
+            font-weight: 700;
+            padding: 6px 10px;
+            border: 1px solid #0f172a;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.3px;
+        }
+        .tabla-formal td {
+            padding: 6px 10px;
+            border: 1px solid #cbd5e1;
+            color: #1e293b;
+        }
+        .tabla-formal tr:nth-child(even) td {
+            background-color: #f8fafc;
+        }
+
+        .seccion-titulo {
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: #03254c;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1.5px solid #e2e8f0;
+            padding-bottom: 4px;
+            margin-top: 18px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .kpi-box {
+            border: 1px solid #cbd5e1;
+            background-color: #f8fafc;
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+        }
+        .kpi-box .kpi-num {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #03254c;
+            margin: 2px 0;
+        }
+        .kpi-box .kpi-label {
+            font-size: 0.70rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+
+        .bloque-firmas {
+            margin-top: 40px;
+            padding-top: 20px;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        .linea-firma {
+            border-top: 1.5px solid #000;
+            margin-top: 45px;
+            padding-top: 6px;
+            text-align: center;
+        }
+
+        /* ESTILOS DE IMPRESIÓN OFICIAL */
+        @media print {
+            body {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .toolbar-flotante, .no-print {
+                display: none !important;
+            }
+            .hoja-informe {
+                width: 100% !important;
+                min-height: auto !important;
+                margin: 0 !important;
+                padding: 12mm 15mm !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            .tabla-formal th {
+                background-color: #000000 !important;
+                color: #ffffff !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .caja-metadatos {
+                border: 1px solid #666 !important;
+                background-color: #f9f9f9 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .break-inside-avoid {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+            @page {
+                size: letter portrait;
+                margin: 8mm 10mm 10mm 10mm;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- BARRA FLOTANTE DE CONTROL EN PANTALLA -->
+    <div class="toolbar-flotante d-flex justify-content-between align-items-center no-print">
+        <div class="d-flex align-items-center gap-3">
+            <a href="{{ url_for('solicitudes_bp.vista_cierre_periodo', tipo=informe.tipo_cierre, anio=informe.anio, trimestre=informe.trimestre) }}" class="btn btn-outline-light btn-sm fw-semibold rounded-2">
+                <i class="bi bi-arrow-left me-1"></i> Volver a Cierres
+            </a>
+            <span class="fw-bold text-warning small d-none d-sm-inline">
+                <i class="bi bi-file-earmark-check me-1"></i> Documento Oficial: {{ informe.codigo_cierre }}
+            </span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            {% if informe.codigo_cierre and not informe.codigo_cierre.startswith('PREV-') %}
+            <a href="{{ url_for('solicitudes_bp.exportar_csv_cierre', codigo_cierre=informe.codigo_cierre) }}" class="btn btn-outline-success btn-sm fw-semibold rounded-2 text-white">
+                <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
+            </a>
+            {% else %}
+            <a href="{{ url_for('solicitudes_bp.exportar_csv_cierre', tipo=informe.tipo_cierre, anio=informe.anio, trimestre=informe.trimestre) }}" class="btn btn-outline-success btn-sm fw-semibold rounded-2 text-white">
+                <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
+            </a>
+            {% endif %}
+            <button onclick="window.print()" class="btn btn-warning btn-sm fw-bold text-dark rounded-2 shadow-sm px-3">
+                <i class="bi bi-printer-fill me-1"></i> Imprimir / Guardar en PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- DOCUMENTO OFICIAL TIPO FOLIO CARTA -->
+    <div class="hoja-informe">
+        
+        <!-- ENCABEZADO INSTITUCIONAL OFICIAL -->
+        <div class="institucional-header text-center">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="flex-shrink-0" style="width: 70px; text-align: left;">
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Escudo Maracaibo" style="height: 60px; width: auto;" onerror="this.outerHTML='<i class=\'bi bi-bank fs-1 text-secondary\'></i>'">
+                </div>
+                <div class="text-center flex-grow-1 px-2">
+                    <div style="font-size: 0.78rem; font-weight: 800; text-transform: uppercase; color: #334155; line-height: 1.2;">República Bolivariana de Venezuela</div>
+                    <div style="font-size: 0.74rem; font-weight: 700; text-transform: uppercase; color: #475569; line-height: 1.2;">Estado Zulia • Municipio Maracaibo</div>
+                    <div style="font-size: 0.85rem; font-weight: 800; text-transform: uppercase; color: #03254c; letter-spacing: 0.5px; line-height: 1.3;">Concejo Municipal Bolivariano de Maracaibo</div>
+                    <div style="font-size: 0.78rem; font-weight: 800; text-transform: uppercase; color: #d97706; letter-spacing: 0.5px; line-height: 1.2;">Dirección de Archivo General Municipal</div>
+                </div>
+                <div class="flex-shrink-0 text-end" style="width: 70px;">
+                    <span class="badge bg-dark text-white p-2 rounded" style="font-size: 0.65rem; font-family: monospace;">CMBM<br>OFICIAL</span>
+                </div>
+            </div>
+
+            <div class="titulo-informe text-center mt-3">
+                {% if informe.tipo_cierre == 'TRIMESTRAL' %}
+                INFORME TÉCNICO DE GESTIÓN Y CORTE TRIMESTRAL DE SOLICITUDES PROCESADAS
+                {% else %}
+                INFORME ANUAL DE GESTIÓN Y RENDICIÓN DE CUENTAS DE SOLICITUDES PROCESADAS
+                {% endif %}
+            </div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: #475569; margin-top: 3px;">
+                {{ informe.periodo_nombre }}
+            </div>
+        </div>
+
+        <!-- CUADRO DE METADATOS Y AUDITORÍA LEGAL -->
+        <div class="caja-metadatos">
+            <div class="row g-2">
+                <div class="col-sm-6">
+                    <div><strong>Código de Instrumento:</strong> <span class="badge bg-dark text-warning font-monospace">{{ informe.codigo_cierre }}</span></div>
+                    <div><strong>Naturaleza del Acto:</strong> {% if informe.tipo_cierre == 'TRIMESTRAL' %}Corte Trimestral Ordinario{% else %}Cierre Fiscal Anual Consolidado{% endif %}</div>
+                    <div><strong>Período Auditado:</strong> {{ informe.fecha_inicio }} al {{ informe.fecha_fin }}</div>
+                </div>
+                <div class="col-sm-6 text-sm-end">
+                    <div><strong>Fecha de Expedición:</strong> {{ informe.fecha_cierre }}</div>
+                    <div><strong>Funcionario Responsable:</strong> {{ informe.usuario }}</div>
+                    <div><strong>Estatus del Cierre:</strong> <span class="badge bg-success">{% if informe.es_historico %}ASENTADO Y CERTIFICADO{% else %}INFORME PRELIMINAR AUDITABLE{% endif %}</span></div>
+                </div>
+            </div>
+            {% if informe.observaciones %}
+            <div class="mt-2 pt-2 border-top border-secondary border-opacity-25 small text-secondary">
+                <strong>Observaciones Institucionales:</strong> {{ informe.observaciones }}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- FUNDAMENTO LEGAL Y RESUMEN EJECUTIVO -->
+        <div class="mb-3" style="font-size: 0.83rem; text-align: justify; line-height: 1.45;">
+            <p class="mb-2">
+                <strong>VISTO:</strong> De conformidad con las facultades legales y atribuciones conferidas en el <strong>Artículo 114, numeral 6 de la Ley Orgánica del Poder Público Municipal</strong>, en concordancia con el Reglamento Interior y de Debates del Concejo Municipal Bolivariano de Maracaibo, y en cumplimiento de las políticas de gobierno digital, transparencia administrativa y modernización del Archivo General Municipal a través de la plataforma <strong>Catatumbo Digital</strong>:
+            </p>
+            <p class="mb-0">
+                Se expide el presente instrumento de auditoría formal que certifica las solicitudes de ciudadanos tramitadas, verificadas en los libros de archivo histórico, procesadas con su respectivo código de seguridad institucional y validadas con tecnología de comprobante digital QR durante el período evaluado.
+            </p>
+        </div>
+
+        <!-- CUADRO DE INDICADORES CLAVE (KPIS) -->
+        <div class="seccion-titulo">
+            <i class="bi bi-speedometer2 me-2"></i>1. Resumen de Rendimiento e Indicadores Clave
+        </div>
+
+        <div class="row g-2 mb-3">
+            <div class="col-3">
+                <div class="kpi-box">
+                    <div class="kpi-label">Procesadas</div>
+                    <div class="kpi-num text-success">{{ informe.estadisticas.totales.total_procesadas }}</div>
+                    <div style="font-size: 0.65rem; color: #16a34a; font-weight: 700;">Certificadas</div>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="kpi-box">
+                    <div class="kpi-label">Pendientes</div>
+                    <div class="kpi-num text-warning">{{ informe.estadisticas.totales.total_pendientes }}</div>
+                    <div style="font-size: 0.65rem; color: #ca8a04; font-weight: 700;">En Archivo</div>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="kpi-box">
+                    <div class="kpi-label">Efectividad</div>
+                    <div class="kpi-num text-primary">{{ informe.estadisticas.totales.tasa_efectividad }}%</div>
+                    <div style="font-size: 0.65rem; color: #0284c7; font-weight: 700;">Cumplimiento</div>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="kpi-box">
+                    <div class="kpi-label">Aranceles Est.</div>
+                    <div class="kpi-num" style="font-size: 1.15rem; color: #03254c;">Bs. {{ "%.2f"|format(informe.estadisticas.totales.total_monto) }}</div>
+                    <div style="font-size: 0.65rem; color: #64748b; font-weight: 700;">SEDEMAT Taquilla</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CUADRO 1: DESGLOSE POR TIPO DE TRÁMITE -->
+        <div class="seccion-titulo">
+            <i class="bi bi-file-earmark-ruled me-2"></i>2. Clasificación por Naturaleza de Trámite Municipal
+        </div>
+
+        <table class="tabla-formal">
+            <thead>
+                <tr>
+                    <th style="width: 50%;">Tipo de Documento / Certificación</th>
+                    <th class="text-center" style="width: 15%;">Cantidad</th>
+                    <th class="text-center" style="width: 15%;">Participación</th>
+                    <th class="text-end" style="width: 20%;">Aranceles (Bs.)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in informe.estadisticas.desglose_tipos %}
+                <tr>
+                    <td class="fw-semibold">{{ t.tipo }}</td>
+                    <td class="text-center fw-bold">{{ t.cantidad }}</td>
+                    <td class="text-center">{{ t.porcentaje }}%</td>
+                    <td class="text-end fw-semibold">Bs. {{ "%.2f"|format(t.monto) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-2">No se computaron trámites para este período.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background-color: #f1f5f9; font-weight: 800;">
+                    <td>TOTAL GENERAL AUDITADO</td>
+                    <td class="text-center">{{ informe.estadisticas.totales.total_procesadas }}</td>
+                    <td class="text-center">100.0%</td>
+                    <td class="text-end">Bs. {{ "%.2f"|format(informe.estadisticas.totales.total_monto) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <!-- CUADRO 2: DISTRIBUCIÓN CRONOLÓGICA -->
+        <div class="seccion-titulo">
+            <i class="bi bi-calendar3-range me-2"></i>3. Distribución Temporal del Período
+        </div>
+
+        <table class="tabla-formal">
+            <thead>
+                <tr>
+                    <th style="width: 50%;">Sub-Período / Tramo</th>
+                    <th class="text-center" style="width: 25%;">Trámites Procesados</th>
+                    <th class="text-end" style="width: 25%;">Monto Estimado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for temp in informe.estadisticas.desglose_temporal %}
+                <tr>
+                    <td class="fw-semibold">{{ temp.etiqueta }}</td>
+                    <td class="text-center fw-bold">{{ temp.procesadas }}</td>
+                    <td class="text-end">Bs. {{ "%.2f"|format(temp.monto) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- CUADRO 3: RELACIÓN NOMINAL DE TRÁMITES PROCESADOS -->
+        <div class="seccion-titulo">
+            <i class="bi bi-list-ol me-2"></i>4. Relación Nominal y Certificada de Expedientes Procesados
+        </div>
+
+        <table class="tabla-formal" style="font-size: 0.75rem;">
+            <thead>
+                <tr>
+                    <th style="width: 8%;">OP</th>
+                    <th style="width: 14%;">Cédula</th>
+                    <th style="width: 25%;">Solicitante</th>
+                    <th style="width: 23%;">Trámite</th>
+                    <th style="width: 18%;">Ubicación Archivo</th>
+                    <th class="text-end" style="width: 12%;">Arancel</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in informe.estadisticas.solicitudes_procesadas %}
+                <tr>
+                    <td class="fw-bold font-monospace">#{{ s.op or s.id }}</td>
+                    <td>{{ s.cedula }}</td>
+                    <td class="fw-bold">{{ s.solicitante }}</td>
+                    <td>{{ s.tipo_documento }}</td>
+                    <td class="text-muted" style="font-size: 0.70rem;">{{ s.ubicacion }}</td>
+                    <td class="text-end fw-semibold">Bs. {{ "%.2f"|format(s.monto) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-3">No hay expedientes procesados en el período.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- CERTIFICACIÓN Y CLAUSURA DE FOLIO -->
+        <div class="break-inside-avoid mt-3 pt-2" style="font-size: 0.80rem; text-align: justify; line-height: 1.4; border-top: 1px dashed #cbd5e1;">
+            <p class="mb-1">
+                <strong>CONSTANCIA DE CIERRE:</strong> Se hace constar que los datos expuestos en el presente instrumento técnico son copia fiel y exacta de las actuaciones registradas en la base de datos documental del Concejo Municipal Bolivariano de Maracaibo, certificando que los expedientes relacionados cuentan con su debido resguardo en el acervo histórico y administrativo de este cuerpo edilicio.
+            </p>
+        </div>
+
+        <!-- BLOQUE OFICIAL DE FIRMAS Y SELLOS (3 COLUMNAS) -->
+        <div class="bloque-firmas">
+            <div class="row text-center g-3">
+                <!-- Columna 1: Coordinador de Archivo -->
+                <div class="col-4">
+                    <div class="linea-firma">
+                        <div style="font-size: 0.82rem; font-weight: 800; text-transform: uppercase;">Coordinación de Archivo</div>
+                        <div style="font-size: 0.72rem; color: #475569;">Dirección de Archivo General Municipal</div>
+                        <div style="font-size: 0.68rem; color: #64748b; font-style: italic;">Concejo Municipal de Maracaibo</div>
+                    </div>
+                </div>
+
+                <!-- Columna 2: Secretario Municipal (Dr. Edwin Baptista) -->
+                <div class="col-4">
+                    <div class="linea-firma">
+                        <div style="font-size: 0.82rem; font-weight: 800; text-transform: uppercase;">Dr. Edwin Josué Baptista R.</div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #03254c;">Secretario Municipal</div>
+                        <div style="font-size: 0.68rem; color: #64748b; font-style: italic;">Firma y Sello Oficial</div>
+                    </div>
+                </div>
+
+                <!-- Columna 3: Taquilla y Trámites Digitales -->
+                <div class="col-4">
+                    <div class="linea-firma">
+                        <div style="font-size: 0.82rem; font-weight: 800; text-transform: uppercase;">Taquilla de Trámites</div>
+                        <div style="font-size: 0.72rem; color: #475569;">Control y Validación Digital QR</div>
+                        <div style="font-size: 0.68rem; color: #64748b; font-style: italic;">Catatumbo Digital</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PIE DE PÁGINA FORMAL -->
+            <div class="text-center mt-4 pt-2" style="font-size: 0.72rem; border-top: 1px solid #e2e8f0;">
+                <div class="mb-1">
+                    <span style="color: #0284c7; font-weight: 700;">Creado por el Concejo Municipal Bolivariano de Maracaibo &copy; 2026</span>
+                    <span class="text-muted mx-1">-</span>
+                    <span style="color: #d4af37; font-weight: 700;">Toda la Gloria es para Dios</span>
+                </div>
+                <div class="fst-italic" style="color: #b8860b; font-weight: 700;">
+                    "{{ versiculo_texto }}" — <strong>{{ versiculo_ref }}</strong>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>
